@@ -53,6 +53,8 @@ rescue LoadError
   raise
 end
 
+require "rbs/parser_aux"
+
 module RBS
   class <<self
     attr_reader :logger_level
