@@ -12,7 +12,6 @@ require "strscan"
 require "rbs/char_scanner"
 require "rbs/errors"
 require "rbs/buffer"
-require "rbs/location"
 require "rbs/namespace"
 require "rbs/type_name"
 require "rbs/types"
@@ -54,6 +53,7 @@ rescue LoadError
 end
 
 require "rbs/parser_aux"
+require "rbs/location_aux"
 
 module RBS
   class <<self
