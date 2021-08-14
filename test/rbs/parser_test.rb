@@ -435,4 +435,10 @@ end
       assert_equal "Hello\n World\nYes\n\nNo\n", decls[0].comment.string
     end
   end
+
+  def test_lex_error
+    assert_raises do
+      RBS::Parser.parse_signature(buffer("@"))
+    end
+  end
 end

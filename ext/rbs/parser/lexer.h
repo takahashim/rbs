@@ -4,6 +4,7 @@
 enum TokenType {
   NullType,         /* (Nothing) */
   pEOF,             /* EOF */
+  ErrorToken,       /* Error */
 
   pLPAREN,          /* ( */
   pRPAREN,          /* ) */
@@ -101,6 +102,7 @@ typedef struct {
 typedef struct {
   VALUE string;
   position current;
+  position start;
   bool first_token_of_line;
 } lexstate;
 

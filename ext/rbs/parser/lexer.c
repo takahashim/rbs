@@ -13,6 +13,7 @@
 static const char *RBS_TOKENTYPE_NAMES[] = {
   "NullType",
   "pEOF",
+  "ErrorToken",
 
   "pLPAREN",          /* ( */
   "pRPAREN",          /* ) */
@@ -441,7 +442,7 @@ static token lex_ivar(lexstate *state, position start) {
     skip(state, c);
     c = peek(state);
   } else {
-    rb_raise(rb_eRuntimeError, "Lexer error");
+    return next_token(state, ErrorToken, start);
   }
 
   while (rb_isalnum(c) || c == '_') {
