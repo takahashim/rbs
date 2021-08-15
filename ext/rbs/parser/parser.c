@@ -54,11 +54,10 @@ static VALUE string_of_loc(parserstate *state, position start, position end) {
   );
 }
 
-static void __attribute__((noreturn)) rbs_abort(const char *message) {
+static void __attribute__((noreturn)) rbs_abort() {
   rb_raise(
     rb_eRuntimeError,
-    "Unexpected error: %s",
-    message
+    "Unexpected error"
   );
 }
 
@@ -179,18 +178,29 @@ VALUE parse_type_name(parserstate *state, TypeNameKind kind, range *rg) {
 }
 
 /*
-  type_list ::= {}<> eol
-              | {} type `,` ... <`,`> eol
+  type_list ::= {} type `,` ... <`,`> eol
               | {} type `,` ... `,` <type> eol
 */
 static VALUE parse_type_list(parserstate *state, enum TokenType eol, VALUE types) {
-  while (state->next_token.type != eol) {
+  while (true) {
     rb_ary_push(types, parse_type(state));
 
     if (state->next_token.type == pCOMMA) {
       parser_advance(state);
+
+      if (state->next_token.type == eol) {
+        break;
+      }
     } else {
-      break;
+      if (state->next_token.type == eol) {
+        break;
+      } else {
+        raise_syntax_error(
+          state,
+          state->next_token,
+          "comma delimited type list is expected"
+        );
+      }
     }
   }
 
@@ -770,8 +780,6 @@ static VALUE parse_simple(parserstate *state) {
     if (state->next_token.type == pLBRACKET) {
       parser_advance(state);
       args_range.start = state->current_token.range.start;
-      rb_ary_push(types, parse_type(state));
-      if (state->next_token.type == pCOMMA) parser_advance(state);
       parse_type_list(state, pRBRACKET, types);
       parser_advance_assert(state, pRBRACKET);
       args_range.end = state->current_token.range.end;
@@ -824,7 +832,10 @@ static VALUE parse_simple(parserstate *state) {
   case pLBRACKET: {
     range rg;
     rg.start = state->current_token.range.start;
-    VALUE types = parse_type_list(state, pRBRACKET, rb_ary_new());
+    VALUE types = rb_ary_new();
+    if (state->next_token.type != pRBRACKET) {
+      parse_type_list(state, pRBRACKET, rb_ary_new());
+    }
     parser_advance_assert(state, pRBRACKET);
     rg.end = state->current_token.range.end;
 
@@ -1909,7 +1920,7 @@ void parse_module_self_types(parserstate *state, VALUE array) {
     if (state->next_token.type == pLBRACKET) {
       parser_advance(state);
       args_range.start = state->current_token.range.start;
-      parse_type_list(state, pLBRACKET, args);
+      parse_type_list(state, pRBRACKET, args);
       parser_advance(state);
       self_range.end = args_range.end = state->current_token.range.end;
     }

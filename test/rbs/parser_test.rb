@@ -535,5 +535,16 @@ RBS
         exn.message
       )
     end
+
+    assert_raises RBS::ParsingError do
+      RBS::Parser.parse_signature(buffer(<<RBS))
+type a = Array[Integer String]
+RBS
+    end.tap do |exn|
+      assert_equal(
+        'test.rbs:1:23...1:29: Syntax error: comma delimited type list is expected, token=`String` (tUIDENT)',
+        exn.message
+      )
+    end
   end
 end
