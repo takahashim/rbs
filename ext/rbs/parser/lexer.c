@@ -347,25 +347,60 @@ static token lex_underscore(lexstate *state) {
   }
 }
 
+static bool is_opr(unsigned int c) {
+  switch (c) {
+  case ':':
+  case ';':
+  case '=':
+  case '.':
+  case ',':
+  case '!':
+  case '"':
+  case '$':
+  case '%':
+  case '&':
+  case '(':
+  case ')':
+  case '-':
+  case '+':
+  case '~':
+  case '|':
+  case '\\':
+  case '\'':
+  case '[':
+  case ']':
+  case '{':
+  case '}':
+  case '*':
+  case '/':
+  case '<':
+  case '>':
+  case '^':
+    return true;
+  default:
+    return false;
+  }
+}
+
 static token lex_global(lexstate *state) {
   unsigned int c;
 
   c = peek(state);
 
-  if (rb_isalpha(c) || c == '_') {
-    advance_char(state, c);
+  if (rb_isdigit(c) || rb_isspace(c) || is_opr(c)) {
+    return NullToken;
+  }
 
-    while (true) {
-      c = peek(state);
-      if (rb_isalnum(c) || c == '_') {
-        advance_char(state, c);
-      } else {
-        return next_token(state, tGIDENT);
-      }
+  while (true) {
+    advance_char(state, c);
+    c = peek(state);
+
+    if (rb_isdigit(c) || rb_isspace(c) || is_opr(c)) {
+      break;
     }
   }
 
-  return NullToken;
+  return next_token(state, tGIDENT);
 }
 
 void pp(VALUE object) {

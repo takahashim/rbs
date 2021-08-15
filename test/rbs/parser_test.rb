@@ -441,4 +441,12 @@ end
       RBS::Parser.parse_signature(buffer("@"))
     end
   end
+
+  def test_parse_global
+    RBS::Parser.parse_signature(buffer(<<RBS)).tap do |decls|
+$日本語: String
+RBS
+      pp decls
+    end
+  end
 end
