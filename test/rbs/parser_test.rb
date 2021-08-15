@@ -446,7 +446,94 @@ end
     RBS::Parser.parse_signature(buffer(<<RBS)).tap do |decls|
 $日本語: String
 RBS
-      pp decls
+      decls[0].tap do |decl|
+        assert_instance_of RBS::AST::Declarations::Global, decl
+        assert_equal :"$日本語", decl.name
+      end
+    end
+  end
+
+  def test_parse_error
+    assert_raises RBS::ParsingError do
+      RBS::Parser.parse_type(buffer('Hello::world::t'))
+    end.tap do |exn|
+      assert_equal(
+        'test.rbs:1:12...1:14: Syntax error: expected a token `pEOF`, token=`::` (pCOLON2)',
+        exn.message
+      )
+    end
+
+    assert_raises RBS::ParsingError do
+      RBS::Parser.parse_signature(buffer(<<RBS))
+interface foo
+RBS
+    end.tap do |exn|
+      assert_equal(
+        'test.rbs:1:10...1:13: Syntax error: expected one of interface name, token=`foo` (tLIDENT)',
+        exn.message
+      )
+    end
+
+    assert_raises RBS::ParsingError do
+      RBS::Parser.parse_type(buffer('interface'))
+    end.tap do |exn|
+      assert_equal(
+        'test.rbs:0:0...1:9: Syntax error: unexpected token for simple type, token=`interface` (kINTERFACE)',
+        exn.message
+      )
+    end
+
+    assert_raises RBS::ParsingError do
+      RBS::Parser.parse_signature(buffer(<<RBS))
+interface _Foo
+  def 123: () -> void
+end
+RBS
+    end.tap do |exn|
+      assert_equal(
+        'test.rbs:2:6...2:9: Syntax error: unexpected token for method name, token=`123` (tINTEGER)',
+        exn.message
+      )
+    end
+
+    assert_raises RBS::ParsingError do
+      RBS::Parser.parse_signature(buffer(<<RBS))
+interface _Foo
+  def foo: () -> void | ...
+end
+RBS
+    end.tap do |exn|
+      assert_equal(
+        'test.rbs:2:24...2:27: Syntax error: unexpected overloading method definition, token=`...` (pDOT3)',
+        exn.message
+      )
+    end
+
+    assert_raises RBS::ParsingError do
+      RBS::Parser.parse_signature(buffer(<<RBS))
+interface _Foo
+  def foo: () -> void |
+  end
+end
+RBS
+    end.tap do |exn|
+      assert_equal(
+        'test.rbs:3:2...3:5: Syntax error: unexpected token for method type, token=`end` (kEND)',
+        exn.message
+      )
+    end
+
+    assert_raises RBS::ParsingError do
+      RBS::Parser.parse_signature(buffer(<<RBS))
+interface _Foo
+  extend _Bar
+end
+RBS
+    end.tap do |exn|
+      assert_equal(
+        'test.rbs:2:2...2:8: Syntax error: unexpected mixin in interface declaration, token=`extend` (kEXTEND)',
+        exn.message
+      )
     end
   end
 end

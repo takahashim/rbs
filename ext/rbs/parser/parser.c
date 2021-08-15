@@ -54,19 +54,33 @@ static VALUE string_of_loc(parserstate *state, position start, position end) {
   );
 }
 
-static void __attribute__((noreturn)) raise_syntax_error_e(parserstate *state, token tok, const char *expected) {
-  VALUE name = rb_funcall(state->buffer, rb_intern("name"), 0);
-  VALUE str = rb_funcall(name, rb_intern("to_s"), 0);
-
+static void __attribute__((noreturn)) rbs_abort(const char *message) {
   rb_raise(
     rb_eRuntimeError,
-    "Syntax error at line %d char %d (%s), expected %s, but got %s",
-    tok.range.start.line,
-    tok.range.start.column,
-    StringValueCStr(str),
-    expected,
-    token_type_str(tok.type)
+    "Unexpected error: %s",
+    message
   );
+}
+
+void __attribute__((noreturn)) raise_syntax_error(parserstate *state, token tok, const char *expected, ...) {
+  va_list args;
+  va_start(args, expected);
+  VALUE message = rb_vsprintf(expected, args);
+  va_end(args);
+
+  VALUE location = rbs_new_location(state->buffer, tok.range);
+  VALUE type = rb_str_new_cstr(token_type_str(tok.type));
+
+  VALUE error = rb_funcall(
+    RBS_ParsingError,
+    rb_intern("new"),
+    3,
+    location,
+    message,
+    type
+  );
+
+  rb_exc_raise(error);
 }
 
 typedef enum {
@@ -79,19 +93,17 @@ void parser_advance_no_gap(parserstate *state) {
   if (state->current_token.range.end.byte_pos == state->next_token.range.start.byte_pos) {
     parser_advance(state);
   } else {
-    raise_syntax_error_e(
+    raise_syntax_error(
       state,
       state->next_token,
-      "token without gap"
+      "unexpected token"
     );
   }
 }
 
-
 /*
   type_name ::= {`::`} (tUIDENT `::`)* <tXIDENT>
               | {(tUIDENT `::`)*} <tXIDENT>
-              | {(XXXX `::`)*} <tXIDENT>               // FIXME
               | {<tXIDENT>}
 */
 VALUE parse_type_name(parserstate *state, TypeNameKind kind, range *rg) {
@@ -123,36 +135,47 @@ VALUE parse_type_name(parserstate *state, TypeNameKind kind, range *rg) {
 
   switch (state->current_token.type) {
     case tLIDENT:
-      if (kind & ALIAS_NAME) break;
+      if (kind & ALIAS_NAME) goto success;
+      goto error;
     case tULIDENT:
-      if (kind & INTERFACE_NAME) break;
+      if (kind & INTERFACE_NAME) goto success;
+      goto error;
     case tUIDENT:
-      if (kind & CLASS_NAME) break;
-    default: {
-      VALUE ids = rb_ary_new();
-      if (kind & ALIAS_NAME) {
-        rb_ary_push(ids, rb_str_new_literal("alias name"));
-      }
-      if (kind & INTERFACE_NAME) {
-        rb_ary_push(ids, rb_str_new_literal("interface name"));
-      }
-      if (kind & CLASS_NAME) {
-        rb_ary_push(ids, rb_str_new_literal("class/module/constant name"));
-      }
+      if (kind & CLASS_NAME) goto success;
+      goto error;
+    default:
+      goto error;
+  }
 
-      raise_syntax_error_e(
-        state,
-        state->current_token,
-        RSTRING_PTR(rb_funcall(ids, rb_intern("join"), 0))
-      );
+  success: {
+    if (rg) {
+      rg->end = state->current_token.range.end;
     }
+
+    return rbs_type_name(namespace, ID2SYM(INTERN_TOKEN(state, state->current_token)));
   }
 
-  if (rg) {
-    rg->end = state->current_token.range.end;
-  }
+  error: {
+    VALUE ids = rb_ary_new();
+    if (kind & ALIAS_NAME) {
+      rb_ary_push(ids, rb_str_new_literal("alias name"));
+    }
+    if (kind & INTERFACE_NAME) {
+      rb_ary_push(ids, rb_str_new_literal("interface name"));
+    }
+    if (kind & CLASS_NAME) {
+      rb_ary_push(ids, rb_str_new_literal("class/module/constant name"));
+    }
 
-  return rbs_type_name(namespace, ID2SYM(INTERN_TOKEN(state, state->current_token)));
+    VALUE string = rb_funcall(ids, rb_intern("join"), 1, rb_str_new_cstr(", "));
+
+    raise_syntax_error(
+      state,
+      state->current_token,
+      "expected one of %"PRIsVALUE,
+      string
+    );
+  }
 }
 
 /*
@@ -590,7 +613,7 @@ VALUE parse_record_attributes(parserstate *state) {
         key = rb_funcall(parse_type(state), rb_intern("literal"), 0);
         break;
       default:
-        rb_raise(rb_eRuntimeError, "Unexpected");
+        rbs_abort();
       }
 
       parser_advance_assert(state, pFATARROW);
@@ -642,7 +665,7 @@ static VALUE parse_symbol(parserstate *state) {
     break;
   }
   default:
-    rb_raise(rb_eRuntimeError, "unexpected");
+    rbs_abort();
   }
 
   return rbs_literal(
@@ -741,7 +764,7 @@ static VALUE parse_simple(parserstate *state) {
     } else if (state->current_token.type == tLIDENT) {
       kind = ALIAS_NAME;
     } else {
-      rb_raise(rb_eRuntimeError, "Unknown type name");
+      rbs_abort();
     }
 
     if (state->next_token.type == pLBRACKET) {
@@ -819,10 +842,10 @@ static VALUE parse_simple(parserstate *state) {
     return parse_proc_type(state);
   }
   default:
-    raise_syntax_error_e(
+    raise_syntax_error(
       state,
       state->current_token,
-      "simple type"
+      "unexpected token for simple type"
     );
   }
 }
@@ -1092,7 +1115,7 @@ VALUE parse_module_type_params(parserstate *state, range *rg) {
           variance = ID2SYM(rb_intern("covariant"));
           break;
         default:
-          rb_raise(rb_eRuntimeError, "Unexpected");
+          rbs_abort();
         }
 
         parser_advance(state);
@@ -1204,10 +1227,10 @@ VALUE parse_method_name(parserstate *state, range *range) {
     return ID2SYM(INTERN_TOKEN(state, state->current_token));
 
   default:
-    raise_syntax_error_e(
+    raise_syntax_error(
       state,
       state->current_token,
-      "method name"
+      "unexpected token for method name"
     );
   }
 }
@@ -1249,9 +1272,17 @@ InstanceSingletonKind parse_instance_singleton_kind(parserstate *state, bool all
       rg->end = state->current_token.range.end;
     } else {
       if (allow_selfq) {
-        raise_syntax_error_e(state, state->next_token, "instance/singleton kind, `self.` or `self?.`");
+        raise_syntax_error(
+          state,
+          state->next_token,
+          "expected `self.`, `self?.`, or empty"
+        );
       } else {
-        raise_syntax_error_e(state, state->next_token, "instance/singleton kind, `self.`");
+        raise_syntax_error(
+          state,
+          state->next_token,
+          "expected `self.` or empty"
+        );
       }
     }
   } else {
@@ -1319,18 +1350,18 @@ VALUE parse_member_def(parserstate *state, bool instance_only, bool accept_overl
         overload_range = state->current_token.range;
         break;
       } else {
-        raise_syntax_error_e(
+        raise_syntax_error(
           state,
           state->next_token,
-          "method definition without `...`"
+          "unexpected overloading method definition"
         );
       }
 
     default:
-      raise_syntax_error_e(
+      raise_syntax_error(
         state,
         state->next_token,
-        "method type or `...`"
+        "unexpected token for method type"
       );
     }
 
@@ -1431,15 +1462,15 @@ VALUE parse_mixin_member(parserstate *state, bool from_interface, position comme
     reset_typevar_scope = false;
     break;
   default:
-    rb_raise(rb_eRuntimeError, "Unexpected");
+    rbs_abort();
   }
 
   if (from_interface) {
     if (state->current_token.type != kINCLUDE) {
-      raise_syntax_error_e(
+      raise_syntax_error(
         state,
         state->current_token,
-        "include"
+        "unexpected mixin in interface declaration"
       );
     }
   }
@@ -1550,7 +1581,7 @@ VALUE parse_variable_member(parserstate *state, position comment_pos, VALUE anno
   range kind_range = NULL_RANGE;
 
   if (rb_array_len(annotations) > 0) {
-    raise_syntax_error_e(
+    raise_syntax_error(
       state,
       state->current_token,
       "annotation cannot be given to variable members"
@@ -1621,7 +1652,7 @@ VALUE parse_variable_member(parserstate *state, position comment_pos, VALUE anno
     break;
 
   default:
-    rb_raise(rb_eRuntimeError, "unexpected token");
+    rbs_abort();
   }
 
   location = rbs_new_location(state->buffer, member_range);
@@ -1639,7 +1670,7 @@ VALUE parse_variable_member(parserstate *state, position comment_pos, VALUE anno
 */
 VALUE parse_visibility_member(parserstate *state, VALUE annotations) {
   if (rb_array_len(annotations) > 0) {
-    raise_syntax_error_e(
+    raise_syntax_error(
       state,
       state->current_token,
       "annotation cannot be given to visibility members"
@@ -1657,7 +1688,7 @@ VALUE parse_visibility_member(parserstate *state, VALUE annotations) {
     klass = RBS_AST_Members_Private;
     break;
   default:
-    rb_raise(rb_eRuntimeError, "unexpected token");
+    rbs_abort();
   }
 
   return rbs_ast_members_visibility(
@@ -1708,7 +1739,7 @@ VALUE parse_attribute_member(parserstate *state, position comment_pos, VALUE ann
     klass = RBS_AST_Members_AttrAccessor;
     break;
   default:
-    rb_raise(rb_eRuntimeError, "Unexpected token");
+    rbs_abort();
   }
 
   is_kind = parse_instance_singleton_kind(state, false, &kind_range);
@@ -1801,10 +1832,10 @@ VALUE parse_interface_members(parserstate *state) {
       break;
 
     default:
-      raise_syntax_error_e(
+      raise_syntax_error(
         state,
         state->current_token,
-        "interface member"
+        "unexpected token for interface declaration member"
       );
     }
 
@@ -2159,10 +2190,10 @@ VALUE parse_nested_decl(parserstate *state, const char *nested_in, position anno
     decl = parse_class_decl(state, annot_pos, annotations);
     break;
   default:
-    raise_syntax_error_e(
+    raise_syntax_error(
       state,
       state->current_token,
-      "class/module declaration member"
+      "unexpected token for class/module declaration member"
     );
   }
 
@@ -2193,10 +2224,10 @@ VALUE parse_decl(parserstate *state) {
   case kCLASS:
     return parse_class_decl(state, annot_pos, annotations);
   default:
-    raise_syntax_error_e(
+    raise_syntax_error(
       state,
       state->current_token,
-      "declaration"
+      "cannot start a declaration"
     );
   }
 }

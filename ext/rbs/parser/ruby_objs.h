@@ -88,6 +88,8 @@ extern VALUE RBS_Types_Variable;
 extern VALUE RBS_Types;
 extern VALUE RBS_MethodType;
 
+extern VALUE RBS_ParsingError;
+
 VALUE rbs_base_type(VALUE klass, VALUE location);
 VALUE rbs_namespace(VALUE path, VALUE absolute);
 VALUE rbs_type_name(VALUE namespace, VALUE name);
@@ -176,3 +178,6 @@ VALUE rbs_ast_members_alias(VALUE new_name, VALUE old_name, VALUE kind, VALUE an
 void pp(VALUE object);
 
 #endif
+
+
+void __attribute__((noreturn)) raise_syntax_error(parserstate *state, token tok, const char *expected, ...);

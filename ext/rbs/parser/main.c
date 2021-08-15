@@ -73,6 +73,8 @@ VALUE RBS_Types_Variable;
 VALUE RBS_Types;
 VALUE RBS_MethodType;
 
+VALUE RBS_ParsingError;
+
 static VALUE
 rbsparser_parse_type(VALUE self, VALUE buffer, VALUE line, VALUE column)
 {
@@ -90,7 +92,11 @@ rbsparser_parse_type(VALUE self, VALUE buffer, VALUE line, VALUE column)
 
   parser_advance(&parser);
   parser_advance(&parser);
-  return parse_type(&parser);
+  VALUE type = parse_type(&parser);
+
+  parser_advance_assert(&parser, pEOF);
+
+  return type;
 }
 
 static VALUE
@@ -139,6 +145,7 @@ Init_parser(void)
   id_RBS = rb_intern_const("RBS");
 
   RBS = rb_const_get(rb_cObject, id_RBS);
+  RBS_ParsingError = rb_const_get(RBS, rb_intern("ParsingError"));
   RBS_AST = rb_const_get(RBS, rb_intern("AST"));
   RBS_AST_Comment = rb_const_get(RBS_AST, rb_intern("Comment"));
   RBS_AST_Annotation = rb_const_get(RBS_AST, rb_intern("Annotation"));

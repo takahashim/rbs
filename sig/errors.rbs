@@ -19,6 +19,11 @@ module RBS
   # Error class for errors raised during parsing.
   #
   class ParsingError < BaseError
+    attr_reader location: Location[bot, bot]
+    attr_reader error_message: String
+    attr_reader token_type: String
+
+    def initialize: (Location[bot, bot], String error_message, String token_type) -> void
   end
 
   # Error class for errors raised during loading environments.
