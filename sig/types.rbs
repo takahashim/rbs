@@ -344,7 +344,7 @@ module RBS
       def map_type: { (t) -> t } -> Function
                   | -> Enumerator[t, Function]
 
-      def map_type_name: () { (TypeName, Location[bot, bot], t) -> TypeName } -> Function
+      def map_type_name: () { (TypeName, Location[untyped, untyped]?, t) -> TypeName } -> Function
 
       def each_type: () { (t) -> void } -> void
                    | -> Enumerator[t, void]
