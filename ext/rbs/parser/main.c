@@ -76,7 +76,7 @@ VALUE RBS_MethodType;
 VALUE RBS_ParsingError;
 
 static VALUE
-rbsparser_parse_type(VALUE self, VALUE buffer, VALUE line, VALUE column)
+rbsparser_parse_type(VALUE self, VALUE buffer, VALUE line, VALUE column, VALUE variables)
 {
   VALUE string = rb_funcall(buffer, rb_intern("content"), 0);
   lexstate lex = { string };
@@ -89,6 +89,14 @@ rbsparser_parse_type(VALUE self, VALUE buffer, VALUE line, VALUE column)
   parser.current_token = NullToken;
   parser.next_token = NullToken;
   parser.next_token2 = NullToken;
+
+  parser_push_typevar_table(&parser, true);
+
+  for (long i = 0; i < rb_array_len(variables); i++) {
+    VALUE index = INT2FIX(i);
+    VALUE symbol = rb_ary_aref(1, &index, variables);
+    parser_insert_typevar(&parser, SYM2ID(symbol));
+  }
 
   parser_advance(&parser);
   parser_advance(&parser);
@@ -100,7 +108,7 @@ rbsparser_parse_type(VALUE self, VALUE buffer, VALUE line, VALUE column)
 }
 
 static VALUE
-rbsparser_parse_method_type(VALUE self, VALUE buffer, VALUE line, VALUE column)
+rbsparser_parse_method_type(VALUE self, VALUE buffer, VALUE line, VALUE column, VALUE variables)
 {
   VALUE string = rb_funcall(buffer, rb_intern("content"), 0);
   lexstate lex = { string };
@@ -113,6 +121,14 @@ rbsparser_parse_method_type(VALUE self, VALUE buffer, VALUE line, VALUE column)
   parser.current_token = NullToken;
   parser.next_token = NullToken;
   parser.next_token2 = NullToken;
+
+  parser_push_typevar_table(&parser, true);
+
+  for (long i = 0; i < rb_array_len(variables); i++) {
+    VALUE index = INT2FIX(i);
+    VALUE symbol = rb_ary_aref(1, &index, variables);
+    parser_insert_typevar(&parser, SYM2ID(symbol));
+  }
 
   parser_advance(&parser);
   parser_advance(&parser);
@@ -250,7 +266,7 @@ Init_parser(void)
 
   rb_define_const(RBSParser, "KEYWORDS", rbsparser_Keywords);
 
-  rb_define_singleton_method(RBSParser, "_parse_type", rbsparser_parse_type, 3);
-  rb_define_singleton_method(RBSParser, "_parse_method_type", rbsparser_parse_method_type, 3);
+  rb_define_singleton_method(RBSParser, "_parse_type", rbsparser_parse_type, 4);
+  rb_define_singleton_method(RBSParser, "_parse_method_type", rbsparser_parse_method_type, 4);
   rb_define_singleton_method(RBSParser, "_parse_signature", rbsparser_parse_signature, 3);
 }

@@ -1,11 +1,11 @@
 module RBS
   class Parser
     def self.parse_type(buffer, line: 1, column: 0, variables: [])
-      _parse_type(buffer, line, column)
+      _parse_type(buffer, line, column, variables)
     end
 
     def self.parse_method_type(buffer, line: 1, column: 0, variables: [])
-      _parse_method_type(buffer, line, column)
+      _parse_method_type(buffer, line, column, variables)
     end
 
     def self.parse_signature(buffer, line: 1, column: 0)

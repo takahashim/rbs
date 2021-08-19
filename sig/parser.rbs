@@ -8,10 +8,13 @@ module RBS
 
     private
 
-    def self._parse_type: (Buffer, Integer line, Integer column) -> Types::t
+    %a{no-defn}
+    def self._parse_type: (Buffer, Integer line, Integer column, Array[Symbol] variables) -> Types::t
 
-    def self._parse_method_type: (Buffer, Integer line, Integer column) -> MethodType
+    %a{no-defn}
+    def self._parse_method_type: (Buffer, Integer line, Integer column, Array[Symbol] variables) -> MethodType
 
+    %a{no-defn}
     def self._parse_signature: (Buffer, Integer line, Integer column) -> Array[AST::Declarations::t]
   end
 end

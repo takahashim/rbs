@@ -442,6 +442,16 @@ end
     end
   end
 
+  def test_type_var
+    RBS::Parser.parse_type(buffer("A"), variables: [:A]).tap do |type|
+      assert_instance_of RBS::Types::Variable, type
+    end
+
+    RBS::Parser.parse_method_type(buffer("() -> A"), variables: [:A]).tap do |type|
+      assert_instance_of RBS::Types::Variable, type.type.return_type
+    end
+end
+
   def test_parse_global
     RBS::Parser.parse_signature(buffer(<<RBS)).tap do |decls|
 $日本語: String
