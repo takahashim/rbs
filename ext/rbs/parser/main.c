@@ -78,31 +78,11 @@ VALUE RBS_ParsingError;
 static VALUE
 rbsparser_parse_type(VALUE self, VALUE buffer, VALUE line, VALUE column, VALUE variables)
 {
-  VALUE string = rb_funcall(buffer, rb_intern("content"), 0);
-  lexstate lex = { string };
-  lex.current.line = NUM2INT(line);
-  lex.current.column = NUM2INT(column);
-  lex.first_token_of_line = lex.current.column == 0;
+  parserstate parser = { 0 };
+  lexstate lexer = { 0 };
 
-  parserstate parser = { &lex };
-  parser.buffer = buffer;
-  parser.current_token = NullToken;
-  parser.next_token = NullToken;
-  parser.next_token2 = NullToken;
-
-  parser_push_typevar_table(&parser, true);
-
-  for (long i = 0; i < rb_array_len(variables); i++) {
-    VALUE index = INT2FIX(i);
-    VALUE symbol = rb_ary_aref(1, &index, variables);
-    parser_insert_typevar(&parser, SYM2ID(symbol));
-  }
-
-  parser_advance(&parser);
-  parser_advance(&parser);
+  init_parser(&parser, &lexer, buffer, FIX2INT(line), FIX2INT(column), variables);
   VALUE type = parse_type(&parser);
-
-  parser_advance_assert(&parser, pEOF);
 
   return type;
 }
@@ -110,48 +90,20 @@ rbsparser_parse_type(VALUE self, VALUE buffer, VALUE line, VALUE column, VALUE v
 static VALUE
 rbsparser_parse_method_type(VALUE self, VALUE buffer, VALUE line, VALUE column, VALUE variables)
 {
-  VALUE string = rb_funcall(buffer, rb_intern("content"), 0);
-  lexstate lex = { string };
-  lex.current.line = NUM2INT(line);
-  lex.current.column = NUM2INT(column);
-  lex.first_token_of_line = lex.current.column == 0;
+  parserstate parser = { 0 };
+  lexstate lexer = { 0 };
 
-  parserstate parser = { &lex };
-  parser.buffer = buffer;
-  parser.current_token = NullToken;
-  parser.next_token = NullToken;
-  parser.next_token2 = NullToken;
-
-  parser_push_typevar_table(&parser, true);
-
-  for (long i = 0; i < rb_array_len(variables); i++) {
-    VALUE index = INT2FIX(i);
-    VALUE symbol = rb_ary_aref(1, &index, variables);
-    parser_insert_typevar(&parser, SYM2ID(symbol));
-  }
-
-  parser_advance(&parser);
-  parser_advance(&parser);
+  init_parser(&parser, &lexer, buffer, FIX2INT(line), FIX2INT(column), variables);
   return parse_method_type(&parser);
 }
 
 static VALUE
 rbsparser_parse_signature(VALUE self, VALUE buffer, VALUE line, VALUE column)
 {
-  VALUE string = rb_funcall(buffer, rb_intern("content"), 0);
-  lexstate lex = { string };
-  lex.current.line = NUM2INT(line);
-  lex.current.column = NUM2INT(column);
-  lex.first_token_of_line = lex.current.column == 0;
+  parserstate parser = { 0 };
+  lexstate lexer = { 0 };
 
-  parserstate parser = { &lex };
-  parser.buffer = buffer;
-  parser.current_token = NullToken;
-  parser.next_token = NullToken;
-  parser.next_token2 = NullToken;
-
-  parser_advance(&parser);
-  parser_advance(&parser);
+  init_parser(&parser, &lexer, buffer, FIX2INT(line), FIX2INT(column), Qnil);
   return parse_signature(&parser);
 }
 

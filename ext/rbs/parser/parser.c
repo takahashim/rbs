@@ -214,6 +214,7 @@ static bool is_keyword_token(enum TokenType type) {
   case tUIDENT:
   case tULIDENT:
   case tQIDENT:
+  case tBANGIDENT:
   KEYWORD_CASES
     return true;
   default:
@@ -257,6 +258,14 @@ static VALUE parse_function_param(parserstate *state) {
   }
 }
 
+static ID intern_token_start_end(parserstate *state, token start_token, token end_token) {
+  return rb_intern3(
+    peek_token(state->lexstate, start_token),
+    end_token.range.end.byte_pos - start_token.range.start.byte_pos,
+    rb_enc_get(state->lexstate->string)
+  );
+}
+
 /*
   keyword ::= {} keyword `:` <function_param>      // Required keyword
             | `?` {} keyword `:` <function_param>  // Optional keyword
@@ -272,8 +281,15 @@ static void parse_keyword(parserstate *state, method_params *params) {
     keywords = params->required_keywords;
   }
 
-  parser_advance(state);
-  key = ID2SYM(INTERN_TOKEN(state, state->current_token));
+  if (state->next_token2.type == pQUESTION) {
+    parser_advance(state);
+    key = ID2SYM(intern_token_start_end(state, state->current_token, state->next_token));
+    parser_advance(state);
+  } else {
+    parser_advance(state);
+    key = ID2SYM(INTERN_TOKEN(state, state->current_token));
+  }
+
   parser_advance_assert(state, pCOLON);
   param = parse_function_param(state);
 
@@ -288,9 +304,20 @@ Returns true if keyword is given.
   is_keyword === {} KEYWORD `:`
 */
 static bool is_keyword(parserstate *state) {
-  return is_keyword_token(state->next_token.type)
-    && state->next_token2.type == pCOLON
-    && state->next_token.range.end.byte_pos == state->next_token2.range.start.byte_pos;
+  if (is_keyword_token(state->next_token.type)) {
+    if (state->next_token2.type == pCOLON && state->next_token.range.end.byte_pos == state->next_token2.range.start.byte_pos) {
+      return true;
+    }
+
+    if (state->next_token2.type == pQUESTION
+        && state->next_token3.type == pCOLON
+        && state->next_token.range.end.byte_pos == state->next_token2.range.start.byte_pos
+        && state->next_token2.range.end.byte_pos == state->next_token3.range.start.byte_pos) {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 /*
@@ -447,6 +474,7 @@ PARSE_KEYWORDS:
     case tUIDENT:
     case tLIDENT:
     case tULIDENT:
+    case tBANGIDENT:
     KEYWORD_CASES
       if (is_keyword(state)) {
         parse_keyword(state, params);

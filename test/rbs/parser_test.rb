@@ -476,10 +476,10 @@ RBS
 
   def test_parse_error
     assert_raises RBS::ParsingError do
-      RBS::Parser.parse_type(buffer('Hello::world::t'))
+      RBS::Parser.parse_type(buffer('[Hello::world::t]'))
     end.tap do |exn|
       assert_equal(
-        'test.rbs:1:12...1:14: Syntax error: expected a token `pEOF`, token=`::` (pCOLON2)',
+        'test.rbs:1:13...1:15: Syntax error: comma delimited type list is expected, token=`::` (pCOLON2)',
         exn.message
       )
     end
@@ -646,6 +646,12 @@ RBS
       RBS::Parser.parse_method_type(buffer("(**untyped, ?Bar) -> void"))
     end.tap do |exn|
       assert_equal "test.rbs:1:13...1:16: Syntax error: optional keyword argument type is expected, token=`Bar` (tUIDENT)", exn.message
+    end
+  end
+
+  def test_parse_method_type2
+    RBS::Parser.parse_method_type(buffer("(foo?: String, bar!: Integer) -> void")).tap do |method_type|
+      assert_equal "foo?: String, bar!: Integer", method_type.type.param_to_s
     end
   end
 end

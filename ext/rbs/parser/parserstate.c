@@ -91,23 +91,25 @@ void print_parser(parserstate *state) {
   printf("  current_token = %s (%d...%d)\n", token_type_str(state->current_token.type), state->current_token.range.start.char_pos, state->current_token.range.end.char_pos);
   printf("     next_token = %s (%d...%d)\n", token_type_str(state->next_token.type), state->next_token.range.start.char_pos, state->next_token.range.end.char_pos);
   printf("    next_token2 = %s (%d...%d)\n", token_type_str(state->next_token2.type), state->next_token2.range.start.char_pos, state->next_token2.range.end.char_pos);
+  printf("    next_token3 = %s (%d...%d)\n", token_type_str(state->next_token3.type), state->next_token3.range.start.char_pos, state->next_token3.range.end.char_pos);
 }
 
 void parser_advance(parserstate *state) {
   state->current_token = state->next_token;
   state->next_token = state->next_token2;
+  state->next_token2 = state->next_token3;
 
   while (true) {
-    if (state->next_token2.type == pEOF) {
+    if (state->next_token3.type == pEOF) {
       break;
     }
 
-    state->next_token2 = rbsparser_next_token(state->lexstate);
+    state->next_token3 = rbsparser_next_token(state->lexstate);
 
-    if (state->next_token2.type == tCOMMENT) {
+    if (state->next_token3.type == tCOMMENT) {
       // skip
-    } else if (state->next_token2.type == tLINECOMMENT) {
-      insert_comment_line(state, state->next_token2);
+    } else if (state->next_token3.type == tLINECOMMENT) {
+      insert_comment_line(state, state->next_token3);
     } else {
       break;
     }
@@ -212,4 +214,33 @@ VALUE get_comment(parserstate *state, int subject_line) {
     string,
     rbs_location_pp(state->buffer, &comment->start, &comment->end)
   );
+}
+
+void init_parser(parserstate *parser, lexstate *lex, VALUE buffer, int line, int column, VALUE variables) {
+  VALUE string = rb_funcall(buffer, rb_intern("content"), 0);
+  lex->string = string;
+  lex->current.line = line;
+  lex->current.column = column;
+  lex->first_token_of_line = lex->current.column == 0;
+
+  parser->lexstate = lex;
+  parser->buffer = buffer;
+  parser->current_token = NullToken;
+  parser->next_token = NullToken;
+  parser->next_token2 = NullToken;
+  parser->next_token3 = NullToken;
+
+  parser_advance(parser);
+  parser_advance(parser);
+  parser_advance(parser);
+
+  if (!NIL_P(variables)) {
+    parser_push_typevar_table(parser, true);
+
+    for (long i = 0; i < rb_array_len(variables); i++) {
+      VALUE index = INT2FIX(i);
+      VALUE symbol = rb_ary_aref(1, &index, variables);
+      parser_insert_typevar(parser, SYM2ID(symbol));
+    }
+  }
 }
