@@ -387,20 +387,77 @@ static token lex_global(lexstate *state) {
 
   c = peek(state);
 
-  if (rb_isdigit(c) || rb_isspace(c) || is_opr(c)) {
+  if (rb_isspace(c)) {
     return NullToken;
   }
 
-  while (true) {
+  if (rb_isdigit(c)) {
+    // `$` [`0`-`9`]+
     advance_char(state, c);
-    c = peek(state);
 
-    if (rb_isdigit(c) || rb_isspace(c) || is_opr(c)) {
-      break;
+    while (true) {
+      c = peek(state);
+      if (rb_isdigit(c)) {
+        advance_char(state, c);
+      } else {
+        return next_token(state, tGIDENT);
+      }
     }
   }
 
-  return next_token(state, tGIDENT);
+  if (c == '-') {
+    // `$` `-` [a-zA-Z0-9_]
+    advance_char(state, c);
+    c = peek(state);
+
+    if (rb_isalnum(c) || c == '_') {
+      advance_char(state, c);
+      return next_token(state, tGIDENT);
+    } else {
+      return NullToken;
+    }
+  }
+
+  switch (c) {
+  case '~':
+  case '*':
+  case '$':
+  case '?':
+  case '!':
+  case '@':
+  case '\\':
+  case '/':
+  case ';':
+  case ',':
+  case '.':
+  case '=':
+  case ':':
+  case '<':
+  case '>':
+  case '"':
+  case '&':
+  case '\'':
+  case '`':
+  case '+':
+    advance_char(state, c);
+    return next_token(state, tGIDENT);
+
+  default:
+    if (is_opr(c)) {
+      return NullToken;
+    }
+
+    while (true) {
+      advance_char(state, c);
+      c = peek(state);
+
+      if (rb_isspace(c) || is_opr(c)) {
+        break;
+      }
+    }
+
+    return next_token(state, tGIDENT);
+  }
 }
 
 void pp(VALUE object) {

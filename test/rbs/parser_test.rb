@@ -461,6 +461,17 @@ RBS
         assert_equal :"$日本語", decl.name
       end
     end
+
+    names = %w($! $" $$ $& $' $* $+ $, $-0 $-F $-I $-W $-a $-d $-i $-l $-p $-v $-w $. $/ $0 $1 $2 $3 $4 $5 $6 $7 $8 $9 $: $; $< $= $> $? $@ $DEBUG $FILENAME $LOAD_PATH $LOADED_FEATURES $PROGRAM_NAME $VERBOSE $\\ $_ $` $stderr $stdin $stdout $~)
+
+    names.each do |name|
+      RBS::Parser.parse_signature(buffer("#{name}: untyped")).tap do |decls|
+        decls[0].tap do |decl|
+          assert_instance_of RBS::AST::Declarations::Global, decl
+          assert_equal name.to_sym, decl.name
+        end
+      end
+    end
   end
 
   def test_parse_error
