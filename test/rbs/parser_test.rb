@@ -557,4 +557,84 @@ RBS
       )
     end
   end
+
+  def test_parse_method_type
+    RBS::Parser.parse_method_type(buffer("() -> void")).tap do |method_type|
+      assert_equal "", method_type.type.param_to_s
+    end
+
+    RBS::Parser.parse_method_type(buffer("(Integer) -> void")).tap do |method_type|
+      assert_equal "Integer", method_type.type.param_to_s
+    end
+
+    RBS::Parser.parse_method_type(buffer("(Integer int , ) -> void")).tap do |method_type|
+      assert_equal "Integer int", method_type.type.param_to_s
+    end
+
+    RBS::Parser.parse_method_type(buffer("(Integer, String) -> void")).tap do |method_type|
+      assert_equal "Integer, String", method_type.type.param_to_s
+    end
+
+    RBS::Parser.parse_method_type(buffer("(?Integer) -> void")).tap do |method_type|
+      assert_equal "?Integer", method_type.type.param_to_s
+    end
+
+    RBS::Parser.parse_method_type(buffer("(?Integer i ,) -> void")).tap do |method_type|
+      assert_equal "?Integer i", method_type.type.param_to_s
+    end
+
+    RBS::Parser.parse_method_type(buffer("(*Integer) -> void")).tap do |method_type|
+      assert_equal "*Integer", method_type.type.param_to_s
+    end
+
+    RBS::Parser.parse_method_type(buffer("(*Integer is ,) -> void")).tap do |method_type|
+      assert_equal "*Integer is", method_type.type.param_to_s
+    end
+
+    RBS::Parser.parse_method_type(buffer("(*Integer, String) -> void")).tap do |method_type|
+      assert_equal "*Integer, String", method_type.type.param_to_s
+    end
+
+    RBS::Parser.parse_method_type(buffer("(*Integer, String s, ) -> void")).tap do |method_type|
+      assert_equal "*Integer, String s", method_type.type.param_to_s
+    end
+
+    RBS::Parser.parse_method_type(buffer("(Integer, ?String, *Symbol, Object) -> void")).tap do |method_type|
+      assert_equal "Integer, ?String, *Symbol, Object", method_type.type.param_to_s
+    end
+
+    RBS::Parser.parse_method_type(buffer("(foo: String, ?bar: Symbol, **baz) -> void")).tap do |method_type|
+      assert_equal "foo: String, ?bar: Symbol, **baz", method_type.type.param_to_s
+    end
+
+    RBS::Parser.parse_method_type(buffer("(foo, foo: String) -> void")).tap do |method_type|
+      assert_equal "foo, foo: String", method_type.type.param_to_s
+    end
+
+    RBS::Parser.parse_method_type(buffer("(?foo, ?foo: String) -> void")).tap do |method_type|
+      assert_equal "?foo, ?foo: String", method_type.type.param_to_s
+    end
+
+    RBS::Parser.parse_method_type(buffer("(1) -> void")).tap do |method_type|
+      assert_equal "1", method_type.type.param_to_s
+    end
+
+    assert_raises RBS::ParsingError do
+      RBS::Parser.parse_method_type(buffer("(foo + 1) -> void"))
+    end.tap do |exn|
+      assert_equal "test.rbs:1:7...1:8: Syntax error: unexpected token for method type parameters, token=`1` (tINTEGER)", exn.message
+    end
+
+    assert_raises RBS::ParsingError do
+      RBS::Parser.parse_method_type(buffer("(foo: untyped, Bar) -> void"))
+    end.tap do |exn|
+      assert_equal "test.rbs:1:15...1:18: Syntax error: required keyword argument type is expected, token=`Bar` (tUIDENT)", exn.message
+    end
+
+    assert_raises RBS::ParsingError do
+      RBS::Parser.parse_method_type(buffer("(**untyped, ?Bar) -> void"))
+    end.tap do |exn|
+      assert_equal "test.rbs:1:13...1:16: Syntax error: optional keyword argument type is expected, token=`Bar` (tUIDENT)", exn.message
+    end
+  end
 end

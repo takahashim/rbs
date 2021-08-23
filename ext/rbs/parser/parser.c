@@ -258,219 +258,226 @@ static VALUE parse_function_param(parserstate *state) {
 }
 
 /*
-  required_keyword ::= {} keyword `:` function_param <`,`>
-                     | {} keyword `:` <function_param>
+  keyword ::= {} keyword `:` <function_param>      // Required keyword
+            | `?` {} keyword `:` <function_param>  // Optional keyword
 */
-static void parse_required_keyword(parserstate *state, method_params *params) {
-  parser_advance(state);
-  VALUE keyword = ID2SYM(INTERN_TOKEN(state, state->current_token));
-  parser_advance_assert(state, pCOLON);
-  VALUE param = parse_function_param(state);
-  rb_hash_aset(params->required_keywords, keyword, param);
+static void parse_keyword(parserstate *state, method_params *params) {
+  VALUE keywords;
+  VALUE key;
+  VALUE param;
 
-  if (state->next_token.type == pCOMMA) {
-    parser_advance(state);
+  if (state->current_token.type == pQUESTION) {
+    keywords = params->optional_keywords;
+  } else {
+    keywords = params->required_keywords;
   }
+
+  parser_advance(state);
+  key = ID2SYM(INTERN_TOKEN(state, state->current_token));
+  parser_advance_assert(state, pCOLON);
+  param = parse_function_param(state);
+
+  rb_hash_aset(keywords, key, param);
 
   return;
 }
 
 /*
-  optional_keyword ::= {`?`} keyword `:` function_param <`,`>
-                     | {`?`} keyword `:` <function_param>
+Returns true if keyword is given.
+
+  is_keyword === {} KEYWORD `:`
 */
-static void parse_optional_keyword(parserstate *state, method_params *params) {
-  parser_advance(state);
-  VALUE keyword = ID2SYM(INTERN_TOKEN(state, state->current_token));
-  parser_advance_assert(state, pCOLON);
-  VALUE param = parse_function_param(state);
-  rb_hash_aset(params->optional_keywords, keyword, param);
-
-  if (state->next_token.type == pCOMMA) {
-    parser_advance(state);
-  }
-
-  return;
+static bool is_keyword(parserstate *state) {
+  return is_keyword_token(state->next_token.type)
+    && state->next_token2.type == pCOLON
+    && state->next_token.range.end.byte_pos == state->next_token2.range.start.byte_pos;
 }
 
 /*
-  keywords ::= {<>} `)`
-             | {} `?` optional_keyword <keywords>
-             | {} `**` function_param <keywords>
-             | {} required_keyword <keywords>
+  params ::= {} `)`
+           | <required_params> `)`
+           | <required_params> `,` `)`
+
+  required_params ::= {} function_param `,` <required_params>
+                    | {} <function_param>
+                    | {} <optional_params>
+
+  optional_params ::= {} `?` function_param `,` <optional_params>
+                    | {} `?` <function_param>
+                    | {} <rest_params>
+
+  rest_params ::= {} `*` function_param `,` <trailing_params>
+                | {} `*` <function_param>
+                | {} <trailing_params>
+
+  trailing_params ::= {} function_param `,` <trailing_params>
+                    | {} <function_param>
+                    | {} <keywords>
+
+  keywords ::= {} required_keyword `,` <keywords>
+             | {} `?` optional_keyword `,` <keywords>
+             | {} `**` function_param `,` <keywords>
+             | {} <required_keyword>
+             | {} `?` <optional_keyword>
+             | {} `**` <function_param>
 */
-static void parse_keywords(parserstate *state, method_params *params) {
+static void parse_params(parserstate *state, method_params *params) {
+  if (state->next_token.type == pRPAREN) {
+    return;
+  }
+
+  while (true) {
+    VALUE param;
+
+    switch (state->next_token.type) {
+      case pQUESTION:
+        goto PARSE_OPTIONAL_PARAMS;
+      case pSTAR:
+        goto PARSE_REST_PARAM;
+      case pSTAR2:
+        goto PARSE_KEYWORDS;
+      case pRPAREN:
+        goto EOP;
+
+      default:
+        if (is_keyword(state)) {
+          goto PARSE_KEYWORDS;
+        }
+
+        param = parse_function_param(state);
+        rb_ary_push(params->required_positionals, param);
+
+        break;
+    }
+
+    if (!parser_advance_if(state, pCOMMA)) {
+      goto EOP;
+    }
+  }
+
+PARSE_OPTIONAL_PARAMS:
+  while (true) {
+    VALUE param;
+
+    switch (state->next_token.type) {
+      case pQUESTION:
+        parser_advance(state);
+
+        if (is_keyword(state)) {
+          parse_keyword(state, params);
+          parser_advance_if(state, pCOMMA);
+          goto PARSE_KEYWORDS;
+        }
+
+        param = parse_function_param(state);
+        rb_ary_push(params->optional_positionals, param);
+
+        break;
+      default:
+        goto PARSE_REST_PARAM;
+    }
+
+    if (!parser_advance_if(state, pCOMMA)) {
+      goto EOP;
+    }
+  }
+
+PARSE_REST_PARAM:
+  if (state->next_token.type == pSTAR) {
+    parser_advance(state);
+    params->rest_positionals = parse_function_param(state);
+
+    if (!parser_advance_if(state, pCOMMA)) {
+      goto EOP;
+    }
+  }
+  goto PARSE_TRAILING_PARAMS;
+
+PARSE_TRAILING_PARAMS:
+  while (true) {
+    VALUE param;
+
+    switch (state->next_token.type) {
+      case pQUESTION:
+        goto PARSE_KEYWORDS;
+      case pSTAR:
+        goto EOP;
+      case pSTAR2:
+        goto PARSE_KEYWORDS;
+      case pRPAREN:
+        goto EOP;
+
+      default:
+        if (is_keyword(state)) {
+          goto PARSE_KEYWORDS;
+        }
+
+        param = parse_function_param(state);
+        rb_ary_push(params->trailing_positionals, param);
+
+        break;
+    }
+
+    if (!parser_advance_if(state, pCOMMA)) {
+      goto EOP;
+    }
+  }
+
+PARSE_KEYWORDS:
   while (true) {
     switch (state->next_token.type) {
-    case pRPAREN:
-      return;
     case pQUESTION:
       parser_advance(state);
-      parse_optional_keyword(state, params);
+      if (is_keyword(state)) {
+        parse_keyword(state, params);
+      } else {
+        raise_syntax_error(
+          state,
+          state->next_token,
+          "optional keyword argument type is expected"
+        );
+      }
       break;
+
     case pSTAR2:
       parser_advance(state);
       params->rest_keywords = parse_function_param(state);
-      return;
+      break;
+
+    case tUIDENT:
+    case tLIDENT:
+    case tULIDENT:
+    KEYWORD_CASES
+      if (is_keyword(state)) {
+        parse_keyword(state, params);
+      } else {
+        raise_syntax_error(
+          state,
+          state->next_token,
+          "required keyword argument type is expected"
+        );
+      }
+      break;
+
     default:
-      parse_required_keyword(state, params);
+      goto EOP;
+    }
+
+    if (!parser_advance_if(state, pCOMMA)) {
+      goto EOP;
     }
   }
-}
 
-/*
-  trailing_params ::= {<>} `)`
-                    | {} `?` optional_keyword <keywords>
-                    | {} <keywords>
-                    | {} function_param `,` <trailing_params>
-                    | {} function_param <trailing_params>         (FIXME)
-
-*/
-static void parse_trailing_params(parserstate *state, method_params *params) {
-  while (true) {
-    if (state->next_token.type == pRPAREN) {
-      return;
-    }
-
-    if (state->next_token.type == pQUESTION) {
-      parser_advance(state);
-      parse_optional_keyword(state, params);
-      parse_keywords(state, params);
-      return;
-    }
-
-    if (state->next_token.type == pSTAR2) {
-      parse_keywords(state, params);
-      return;
-    }
-
-    if (is_keyword_token(state->next_token.type) && state->next_token2.type == pCOLON) {
-      parse_keywords(state, params);
-      return;
-    }
-
-    VALUE param = parse_function_param(state);
-    rb_ary_push(params->trailing_positionals, param);
-
-    if (state->next_token.type == pCOMMA) {
-      parser_advance(state);
-    }
+EOP:
+  if (state->next_token.type != pRPAREN) {
+    raise_syntax_error(
+      state,
+      state->next_token,
+      "unexpected token for method type parameters"
+    );
   }
-}
 
-/**
- * ... `?` Foo bar `,` ...
- *    >               >
- *
- * */
-/*
-  optional_params ::= {<>} `)`
-                    | {} `*` <function_param> `)`
-                    | {} `*` function_param `,` <trailing_params>
-                    | {} `?` function_param `,` <optional_params>
-                    | {} `?` function_param <optional_params>      (FIXME)
-                    | {} <keywords>
-*/
-static void parse_optional_params(parserstate *state, method_params *params) {
-  while (true) {
-    if (state->next_token.type == pRPAREN) {
-      return;
-    }
-
-    if (state->next_token.type == pSTAR) {
-      parser_advance(state);
-      params->rest_positionals = parse_function_param(state);
-
-      if (state->next_token.type == pRPAREN) {
-        return;
-      } else {
-        parser_advance_assert(state, pCOMMA);
-        parse_trailing_params(state, params);
-        return;
-      }
-    }
-
-    if (state->next_token.type == pQUESTION) {
-      parser_advance(state);
-
-      if (is_keyword_token(state->next_token.type)) {
-        if (state->next_token2.type == pCOLON) {
-          parse_optional_keyword(state, params);
-          parse_keywords(state, params);
-          return;
-        }
-      }
-
-      VALUE param = parse_function_param(state);
-      rb_ary_push(params->optional_positionals, param);
-
-      if (state->next_token.type == pCOMMA) {
-        parser_advance(state);
-      }
-    } else {
-      parse_trailing_params(state, params);
-      return;
-    }
-  }
-}
-
-/*
-  required_params ::= {<>} `)`
-                    | {} `*` <function_param> `)`
-                    | {} `*` function_params `,` <trailing_params>
-                    | {} `**` <keywords>
-                    | {} `?` <optional_params>
-                    | {} function_param `,` <required_params>
-                    | {} function_param <required_params>      (FIXME)
-*/
-static void parse_required_params(parserstate *state, method_params *params) {
-  while (true) {
-    if (state->next_token.type == pRPAREN) {
-      return;
-    }
-
-    if (state->next_token.type == pSTAR) {
-      parser_advance(state);
-      params->rest_positionals = parse_function_param(state);
-
-      if (state->next_token.type == pRPAREN) {
-        return;
-      } else {
-        parser_advance_assert(state, pCOMMA);
-        parse_trailing_params(state, params);
-        return;
-      }
-    }
-
-    if (state->next_token.type == pSTAR2) {
-      parse_keywords(state, params);
-      return;
-    }
-
-    if (state->next_token.type == pQUESTION) {
-      parse_optional_params(state, params);
-      return;
-    }
-
-    if (is_keyword_token(state->next_token.type) && state->next_token2.type == pCOLON) {
-      parse_keywords(state, params);
-      return;
-    }
-
-    VALUE param = parse_function_param(state);
-    rb_ary_push(params->required_positionals, param);
-
-    if (state->next_token.type == pCOMMA) {
-      parser_advance(state);
-    }
-  }
-}
-
-/*
-  params ::= {} <required_params>
-*/
-static void parse_params(parserstate *state, method_params *params) {
-  parse_required_params(state, params);
+  return;
 }
 
 /*
