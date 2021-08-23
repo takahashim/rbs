@@ -1,4 +1,4 @@
-#!/usr/local/bin/zsh
+#!/bin/sh
 
 REPO_ROOT=$(cd $(dirname $0); pwd)
 GEMFILE=${REPO_ROOT}/../steep/Gemfile
