@@ -15,13 +15,6 @@ class RBS::TypeParsingTest < Test::Unit::TestCase
       assert_equal "void", type.location.source
     end
 
-    silence_warnings do
-      Parser.parse_type("any").yield_self do |type|
-        assert_instance_of Types::Bases::Any, type
-        assert_equal "any", type.location.source
-      end
-    end
-
     Parser.parse_type("untyped").yield_self do |type|
       assert_instance_of Types::Bases::Any, type
       assert_equal "untyped", type.location.source
@@ -60,6 +53,11 @@ class RBS::TypeParsingTest < Test::Unit::TestCase
     Parser.parse_type("class").yield_self do |type|
       assert_instance_of Types::Bases::Class, type
       assert_equal "class", type.location.source
+    end
+
+    Parser.parse_type("any").yield_self do |type|
+      assert_instance_of Types::Alias, type
+      assert_equal "any", type.location.source
     end
   end
 
