@@ -213,6 +213,7 @@ static bool is_keyword_token(enum TokenType type) {
   case tLIDENT:
   case tUIDENT:
   case tULIDENT:
+  case tULLIDENT:
   case tQIDENT:
   case tBANGIDENT:
   KEYWORD_CASES
@@ -477,6 +478,7 @@ PARSE_KEYWORDS:
     case tUIDENT:
     case tLIDENT:
     case tULIDENT:
+    case tULLIDENT:
     case tBANGIDENT:
     KEYWORD_CASES
       if (is_keyword(state)) {
@@ -1238,6 +1240,7 @@ VALUE parse_method_name(parserstate *state, range *range) {
   case tUIDENT:
   case tLIDENT:
   case tULIDENT:
+  case tULLIDENT:
   KEYWORD_CASES
     if (state->next_token.type == pQUESTION && state->current_token.range.end.byte_pos == state->next_token.range.start.byte_pos) {
       range->start = state->current_token.range.start;
@@ -1258,9 +1261,11 @@ VALUE parse_method_name(parserstate *state, range *range) {
 
   case tBANGIDENT:
   case tEQIDENT:
-  case tQIDENT:
     *range = state->current_token.range;
     return ID2SYM(INTERN_TOKEN(state, state->current_token));
+
+  case tQIDENT:
+    return rb_to_symbol(rbs_unquote_string(state, state->current_token.range, 0));
 
   case pBAR:
   case pHAT:
@@ -1384,6 +1389,7 @@ VALUE parse_member_def(parserstate *state, bool instance_only, bool accept_overl
     case pARROW:
     case pLBRACE:
     case pLBRACKET:
+    case pQUESTION:
       rb_ary_push(method_types, parse_method_type(state));
       member_range.end = state->current_token.range.end;
       break;

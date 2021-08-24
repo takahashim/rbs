@@ -61,7 +61,8 @@ enum TokenType {
 
   tLIDENT,          /* Identifiers starting with lower case */
   tUIDENT,          /* Identifiers starting with upper case */
-  tULIDENT,         /* Identifiers starting with `_` */
+  tULIDENT,         /* Identifiers starting with `_` followed by upper case */
+  tULLIDENT,        /* Identifiers starting with `_` followed by lower case */
   tGIDENT,          /* Identifiers starting with `$` */
   tAIDENT,          /* Identifiers starting with `@` */
   tA2IDENT,         /* Identifiers starting with `@@` */

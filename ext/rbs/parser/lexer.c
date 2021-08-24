@@ -71,6 +71,7 @@ static const char *RBS_TOKENTYPE_NAMES[] = {
   "tLIDENT",          /* Identifiers starting with lower case */
   "tUIDENT",          /* Identifiers starting with upper case */
   "tULIDENT",         /* Identifiers starting with `_` */
+  "tULLIDENT",
   "tGIDENT",          /* Identifiers starting with `$` */
   "tAIDENT",          /* Identifiers starting with `@` */
   "tA2IDENT",         /* Identifiers starting with `@@` */
@@ -304,8 +305,8 @@ static token lex_eq(lexstate *state) {
 
 /*
   underscore ::= _A        tULIDENT
-               | _a        tLIDENT
-               | _         tLIDENT
+               | _a        tULLIDENT
+               | _         tULLIDENT
 */
 static token lex_underscore(lexstate *state) {
   unsigned int c;
@@ -341,9 +342,17 @@ static token lex_underscore(lexstate *state) {
       }
     }
 
-    return next_token(state, tLIDENT);
+    if (c == '!') {
+      advance_char(state, c);
+      return next_token(state, tBANGIDENT);
+    } else if (c == '=') {
+      advance_char(state, c);
+      return next_token(state, tEQIDENT);
+    } else {
+      return next_token(state, tULLIDENT);
+    }
   } else {
-    return next_token(state, tLIDENT);
+    return next_token(state, tULLIDENT);
   }
 }
 
