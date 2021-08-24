@@ -23,108 +23,6 @@ class RBS::MethodTypeParsingTest < Test::Unit::TestCase
     RBS::Parser.parse_signature(buffer)
   end
 
-  def test_tokenizer
-#     puts parse_type(<<EOF)
-# Array[
-#   # LINE Comment here!
-#   String # comment here.
-#   ,
-#   :foo,
-#   :"日本語"
-# ]
-# EOF
-    parse_type("self").tap do |type|
-      assert_instance_of Types::Bases::Self, type
-      assert_equal "self", type.location.source
-    end
-    puts parse_type("::Object::Array")
-    puts parse_type("::Object::_Each")
-    puts parse_type("::Object::Types::t")
-    puts parse_type("singleton(::Object)")
-    puts parse_type("t & s | u & a")
-    puts parse_type("t | s | u & a")
-    puts parse_type("t & s | (u | a)")
-    puts parse_type("[a, B]")
-    puts parse_type("[a,]")
-    puts parse_type("[]")
-    puts parse_type("Array[String]")
-    puts parse_type("Array[String?]?")
-    puts parse_type("^() -> void")
-    puts parse_type("^(String) -> void")
-    puts parse_type("^(String s) -> void")
-    puts parse_type("[123, +12_23, -1234_]")
-    puts parse_type("true | false")
-    puts parse_type("['foo', 'foo\"bar', 'ba\\'z']")
-    puts parse_type('["foo", "foo\"bar", "ba\\tz"]')
-    puts parse_type('"ba\\tz"').literal
-    puts parse_type(<<'TYPE')
-[
-  :foo,
-  :$bar,
-  :@bar,
-  :@barbaz
-  :__bar,
-  :"日本語",
-  :|,
-  :&,
-  :/,
-  :%,
-  :~,
-  :`,
-  :^,
-  :==,
-  :=~,
-  :===,
-  :<=>,
-  :<<,
-  :<=,
-  :<,
-  :>>,
-  :>=,
-  :>,
-  :+@,
-  :+,
-  :-@,
-  :-,
-  :*,
-  :**,
-  :[]=,
-  :[],
-  :!=,
-  :!~,
-]
-TYPE
-    puts parse_type("{ id: Integer, name: String, :foo => [], '日本語' => '文字列' }")
-    puts parse_type('{ "\shello\nworld" => String }')
-
-    puts parse_type('^() -> void')
-    puts parse_type('^{ (String) -> untyped? } -> void')
-  end
-
-  def test_decl___123
-    pp parse_signature(<<EOF)
-# Number of people.
-#
-# ```
-# People::Size = 123
-# ```
-People::Size: Integer
-
-# bar
-%a{hoge} %a|huga|
-type json = Integer | bool
-
-# $Foo is foo!
-#
-$Foo: [String, Integer]
-EOF
-  end
-
-  def test_method_type___123
-    puts parse_method_type("() -> String")
-    puts parse_method_type("[A] () { () -> A } -> Array[A]")
-  end
-
   def test_method_type
     Parser.parse_method_type("()->void").yield_self do |type|
       assert_equal "() -> void", type.to_s
@@ -144,60 +42,42 @@ EOF
     end
   end
 
-  def test_method_type_eof_re
-    Parser.parse_method_type("()->void~ Integer", eof_re: /~/).yield_self do |type|
-      assert_equal "() -> void", type.to_s
-    end
-  end
-
-  def test_method_type_eof_re_error
-    # `eof_re` has higher priority than other token.
-    # Specifying type token may result in a SyntaxError
-    error = assert_raises Parser::SyntaxError do
-      Parser.parse_method_type("()-> { foo: bar } }", eof_re: /}/).yield_self do |type|
-        assert_equal "() -> void", type.to_s
-      end
-    end
-
-    assert_equal "}", error.error_value
-  end
-
   def test_method_parameter_location
     Parser.parse_method_type("(untyped a, ?Integer b, *String c, Symbol d) -> void").tap do |type|
       type.type.required_positionals[0].tap do |param|
-        assert_instance_of Location::WithChildren, param.location
+        assert_instance_of Location, param.location
         assert_equal "a", param.location[:name].source
       end
 
       type.type.optional_positionals[0].tap do |param|
-        assert_instance_of Location::WithChildren, param.location
+        assert_instance_of Location, param.location
         assert_equal "b", param.location[:name].source
       end
 
       type.type.rest_positionals.tap do |param|
-        assert_instance_of Location::WithChildren, param.location
+        assert_instance_of Location, param.location
         assert_equal "c", param.location[:name].source
       end
 
       type.type.trailing_positionals[0].tap do |param|
-        assert_instance_of Location::WithChildren, param.location
+        assert_instance_of Location, param.location
         assert_equal "d", param.location[:name].source
       end
     end
 
     Parser.parse_method_type("(a: untyped a, ?b: Integer b, **String c) -> void").tap do |type|
       type.type.required_keywords[:a].tap do |param|
-        assert_instance_of Location::WithChildren, param.location
+        assert_instance_of Location, param.location
         assert_equal "a", param.location[:name].source
       end
 
       type.type.optional_keywords[:b].tap do |param|
-        assert_instance_of Location::WithChildren, param.location
+        assert_instance_of Location, param.location
         assert_equal "b", param.location[:name].source
       end
 
       type.type.rest_keywords.tap do |param|
-        assert_instance_of Location::WithChildren, param.location
+        assert_instance_of Location, param.location
         assert_equal "c", param.location[:name].source
       end
     end
