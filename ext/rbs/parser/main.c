@@ -83,6 +83,7 @@ rbsparser_parse_type(VALUE self, VALUE buffer, VALUE line, VALUE column, VALUE v
 
   init_parser(&parser, &lexer, buffer, FIX2INT(line), FIX2INT(column), variables);
   VALUE type = parse_type(&parser);
+  parser_advance_assert(&parser, pEOF);
 
   return type;
 }
