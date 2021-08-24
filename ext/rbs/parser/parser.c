@@ -267,21 +267,32 @@ static ID intern_token_start_end(parserstate *state, token start_token, token en
 }
 
 /*
+  keyword_key ::= {} <keyword> `:`
+                | {} keyword <`?`> `:`
+*/
+static VALUE parse_keyword_key(parserstate *state) {
+  VALUE key;
+
+  parser_advance(state);
+
+  if (state->next_token.type == pQUESTION) {
+    key = ID2SYM(intern_token_start_end(state, state->current_token, state->next_token));
+    parser_advance(state);
+  } else {
+    key = ID2SYM(INTERN_TOKEN(state, state->current_token));
+  }
+
+  return key;
+}
+
+/*
   keyword ::= {} keyword `:` <function_param>
 */
 static void parse_keyword(parserstate *state, VALUE keywords) {
   VALUE key;
   VALUE param;
 
-  if (state->next_token2.type == pQUESTION) {
-    parser_advance(state);
-    key = ID2SYM(intern_token_start_end(state, state->current_token, state->next_token));
-    parser_advance(state);
-  } else {
-    parser_advance(state);
-    key = ID2SYM(INTERN_TOKEN(state, state->current_token));
-  }
-
+  key = parse_keyword_key(state);
   parser_advance_assert(state, pCOLON);
   param = parse_function_param(state);
 
@@ -627,14 +638,15 @@ VALUE parse_record_attributes(parserstate *state) {
   VALUE hash = rb_hash_new();
 
   while (true) {
+    VALUE key;
+    VALUE type;
+
     if (is_keyword(state)) {
       // { foo: type } syntax
-      parse_keyword(state, hash);
+      key = parse_keyword_key(state);
+      parser_advance_assert(state, pCOLON);
     } else {
       // { key => type } syntax
-      VALUE key;
-      VALUE type;
-
       switch (state->next_token.type) {
       case tSYMBOL:
       case tSQSYMBOL:
@@ -649,12 +661,10 @@ VALUE parse_record_attributes(parserstate *state) {
       default:
         rbs_abort();
       }
-
       parser_advance_assert(state, pFATARROW);
-
-      type = parse_type(state);
-      rb_hash_aset(hash, key, type);
     }
+    type = parse_type(state);
+    rb_hash_aset(hash, key, type);
 
     if (parser_advance_if(state, pCOMMA)) {
       if (state->next_token.type == pRBRACE) {
