@@ -153,48 +153,102 @@ void print_token(token tok) {
 }
 
 void insert_comment_line(parserstate *state, token tok) {
-  if (state->last_comment) {
-    if (state->last_comment->end.line != tok.range.start.line - 1) {
-      free(state->last_comment->tokens);
-      free(state->last_comment);
-      state->last_comment = NULL;
-    }
-  }
+  int prev_line = tok.range.start.line - 1;
 
-  if (!state->last_comment) {
-    state->last_comment = calloc(1, sizeof(comment));
-    state->last_comment->tokens = calloc(10, sizeof(token));
-    state->last_comment->line_size = 10;
-    state->last_comment->start = tok.range.start;
-  }
+  comment *com = comment_get_comment(state->last_comment, prev_line);
 
-  if (state->last_comment->line_count == state->last_comment->line_size) {
-    token *p = state->last_comment->tokens;
-    state->last_comment->tokens = calloc(state->last_comment->line_size + 10, sizeof(token));
-    memcpy(state->last_comment->tokens, p, state->last_comment->line_size * sizeof(token));
-    state->last_comment->line_size += 10;
-    free(p);
+  if (com) {
+    comment_insert_new_line(com, tok);
+  } else {
+    state->last_comment = alloc_comment(tok, state->last_comment);
   }
-
-  state->last_comment->tokens[state->last_comment->line_count++] = tok;
-  state->last_comment->end = tok.range.end;
 }
 
 VALUE get_comment(parserstate *state, int subject_line) {
-  comment *comment = state->last_comment;
+  int comment_line = subject_line - 1;
 
-  if (!comment) return Qnil;
-  if (comment->end.line != subject_line - 1) return Qnil;
+  comment *com = comment_get_comment(state->last_comment, comment_line);
 
-  VALUE content = rb_funcall(state->buffer, rb_intern("content"), 0);
+  if (com) {
+    return comment_to_ruby(com, state->buffer);
+  } else {
+    return Qnil;
+  }
+}
+
+comment *alloc_comment(token comment_token, comment *last_comment) {
+  comment *new_comment = calloc(1, sizeof(comment));
+
+  new_comment->next_comment = last_comment;
+
+  new_comment->start = comment_token.range.start;
+  new_comment->end = comment_token.range.end;
+
+  new_comment->line_size = 0;
+  new_comment->line_count = 0;
+
+  comment_insert_new_line(new_comment, comment_token);
+
+  return new_comment;
+}
+
+void free_comment(comment *com) {
+  if (com->next_comment) {
+    free_comment(com->next_comment);
+  }
+
+  free(com->tokens);
+  free(com);
+}
+
+void comment_insert_new_line(comment *com, token comment_token) {
+  if (com->line_count == 0) {
+    com->start = comment_token.range.start;
+  }
+
+  if (com->line_count == com->line_size) {
+    com->line_size += 10;
+
+    if (com->tokens) {
+      token *p = com->tokens;
+      com->tokens = calloc(com->line_size, sizeof(token));
+      memcpy(com->tokens, p, sizeof(token) + com->line_count);
+      free(p);
+    } else {
+      com->tokens = calloc(com->line_size, sizeof(token));
+    }
+  }
+
+  com->tokens[com->line_count++] = comment_token;
+  com->end = comment_token.range.end;
+}
+
+comment *comment_get_comment(comment *com, int line) {
+  if (com == NULL) {
+    return NULL;
+  }
+
+  if (com->end.line < line) {
+    return NULL;
+  }
+
+  if (com->end.line == line) {
+    return com;
+  }
+
+  return comment_get_comment(com->next_comment, line);
+}
+
+VALUE comment_to_ruby(comment *com, VALUE buffer) {
+  VALUE content = rb_funcall(buffer, rb_intern("content"), 0);
   rb_encoding *enc = rb_enc_get(content);
   VALUE string = rb_enc_str_new_cstr("", enc);
 
   int hash_bytes = rb_enc_codelen('#', enc);
   int space_bytes = rb_enc_codelen(' ', enc);
 
-  for (size_t i = 0; i < comment->line_count; i++) {
-    token tok = comment->tokens[i];
+  for (size_t i = 0; i < com->line_count; i++) {
+    token tok = com->tokens[i];
 
     char *comment_start = RSTRING_PTR(content) + tok.range.start.byte_pos + hash_bytes;
     int comment_bytes = RANGE_BYTES(tok.range) - hash_bytes;
@@ -211,7 +265,7 @@ VALUE get_comment(parserstate *state, int subject_line) {
 
   return rbs_ast_comment(
     string,
-    rbs_location_pp(state->buffer, &comment->start, &comment->end)
+    rbs_location_pp(buffer, &com->start, &com->end)
   );
 }
 
@@ -252,5 +306,8 @@ parserstate *alloc_parser(VALUE buffer, int line, int column, VALUE variables) {
 
 void free_parser(parserstate *parser) {
   free(parser->lexstate);
+  if (parser->last_comment) {
+    free_comment(parser->last_comment);
+  }
   free(parser);
 }

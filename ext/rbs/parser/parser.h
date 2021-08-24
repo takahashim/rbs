@@ -12,12 +12,15 @@ typedef struct id_table {
   struct id_table *next;
 } id_table;
 
-typedef struct {
+typedef struct comment {
   position start;
   position end;
+
   size_t line_size;
   size_t line_count;
   token *tokens;
+
+  struct comment *next_comment;
 } comment;
 
 typedef struct {
@@ -56,6 +59,12 @@ bool parser_advance_if(parserstate *state, enum TokenType type);
 
 void insert_comment_line(parserstate *state, token token);
 VALUE get_comment(parserstate *state, int subject_line);
+
+comment *alloc_comment(token comment_token, comment *last_comment);
+void free_comment(comment *com);
+void comment_insert_new_line(comment *com, token comment_token);
+comment *comment_get_comment(comment *com, int line);
+VALUE comment_to_ruby(comment *com, VALUE buffer);
 
 #define INTERN_TOKEN(parserstate, tok) \
   rb_intern3(\
