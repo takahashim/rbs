@@ -635,42 +635,42 @@ class RBS::TypeParsingTest < Test::Unit::TestCase
 
   def test_location_children
     Parser.parse_type("_Foo").yield_self do |type|
-      assert_instance_of RBS::Location::WithChildren, type.location
+      assert_instance_of RBS::Location, type.location
 
       assert_equal "_Foo", type.location[:name].source
       assert_nil type.location[:args]
     end
 
     Parser.parse_type("_Foo[untyped]").yield_self do |type|
-      assert_instance_of RBS::Location::WithChildren, type.location
+      assert_instance_of RBS::Location, type.location
 
       assert_equal "_Foo", type.location[:name].source
       assert_equal "[untyped]", type.location[:args].source
     end
 
     Parser.parse_type("Foo").yield_self do |type|
-      assert_instance_of RBS::Location::WithChildren, type.location
+      assert_instance_of RBS::Location, type.location
 
       assert_equal "Foo", type.location[:name].source
       assert_nil type.location[:args]
     end
 
     Parser.parse_type("Foo[untyped]").yield_self do |type|
-      assert_instance_of RBS::Location::WithChildren, type.location
+      assert_instance_of RBS::Location, type.location
 
       assert_equal "Foo", type.location[:name].source
       assert_equal "[untyped]", type.location[:args].source
     end
 
     Parser.parse_type("foo").yield_self do |type|
-      assert_instance_of RBS::Location::WithChildren, type.location
+      assert_instance_of RBS::Location, type.location
 
       assert_equal "foo", type.location[:name].source
       assert_nil type.location[:args]
     end
 
     Parser.parse_type("singleton(::Foo)").yield_self do |type|
-      assert_instance_of RBS::Location::WithChildren, type.location
+      assert_instance_of RBS::Location, type.location
 
       assert_equal "::Foo", type.location[:name].source
     end
