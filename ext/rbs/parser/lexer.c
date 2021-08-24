@@ -387,8 +387,8 @@ static token lex_global(lexstate *state) {
 
   c = peek(state);
 
-  if (rb_isspace(c)) {
-    return NullToken;
+  if (rb_isspace(c) || c == 0) {
+    return next_token(state, ErrorToken);
   }
 
   if (rb_isdigit(c)) {
@@ -414,7 +414,7 @@ static token lex_global(lexstate *state) {
       advance_char(state, c);
       return next_token(state, tGIDENT);
     } else {
-      return NullToken;
+      return next_token(state, ErrorToken);
     }
   }
 
@@ -443,15 +443,15 @@ static token lex_global(lexstate *state) {
     return next_token(state, tGIDENT);
 
   default:
-    if (is_opr(c)) {
-      return NullToken;
+    if (is_opr(c) || c == 0) {
+      return next_token(state, ErrorToken);
     }
 
     while (true) {
       advance_char(state, c);
       c = peek(state);
 
-      if (rb_isspace(c) || is_opr(c)) {
+      if (rb_isspace(c) || is_opr(c) || c == 0) {
         break;
       }
     }
@@ -720,14 +720,22 @@ static token lex_colon_symbol(lexstate *state) {
         advance_char(state, c[0]);
       }
       return next_token(state, tSYMBOL);
-    case '@':
+    case '@': {
       advance_char(state, '@');
-      lex_ivar(state);
-      return next_token(state, tSYMBOL);
-    case '$':
+      token tok = lex_ivar(state);
+      if (tok.type != ErrorToken) {
+        tok.type = tSYMBOL;
+      }
+      return tok;
+    }
+    case '$': {
       advance_char(state, '$');
-      lex_global(state);
-      return next_token(state, tSYMBOL);
+      token tok = lex_global(state);
+      if (tok.type != ErrorToken) {
+        tok.type = tSYMBOL;
+      }
+      return tok;
+    }
     case '\'': {
       position start = state->start;
       advance_char(state, '\'');
@@ -751,8 +759,10 @@ static token lex_colon_symbol(lexstate *state) {
         tok.range.start = start;
 
         if (peek(state) == '?') {
-          skip_char(state, '?');
-          tok.range.end = state->current;
+          if (tok.type != tBANGIDENT && tok.type != tEQIDENT) {
+            skip_char(state, '?');
+            tok.range.end = state->current;
+          }
         }
 
         tok.type = tSYMBOL;
