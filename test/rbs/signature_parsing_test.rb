@@ -156,7 +156,7 @@ class RBS::SignatureParsingTest < Test::Unit::TestCase
       end
     end
 
-    assert_raises Parser::SemanticsError do
+    assert_raises RBS::ParsingError do
       Parser.parse_signature(<<~SIG)
         interface _Each[A, B]
           def self.foo: -> void
@@ -164,7 +164,7 @@ class RBS::SignatureParsingTest < Test::Unit::TestCase
       SIG
     end
 
-    assert_raises Parser::SemanticsError do
+    assert_raises RBS::ParsingError do
       Parser.parse_signature(<<~SIG)
         interface _Each[A, B]
           include Object
@@ -447,25 +447,6 @@ end
             assert_instance_of Types::Block, ty.block
             assert ty.block.required
           end
-        end
-      end
-    end
-  end
-
-  def test_incompatible_method_definition
-    # `incompatible` is ignored with warning message.
-    silence_warnings do
-      Parser.parse_signature(<<~SIG).yield_self do |decls|
-      class Foo
-        incompatible def foo: () -> Integer
-      end
-     SIG
-        assert_equal 1, decls.size
-
-        decls[0].yield_self do |decl|
-          assert_instance_of Declarations::Class, decl
-
-          assert_instance_of Members::MethodDefinition, decl.members[0]
         end
       end
     end
