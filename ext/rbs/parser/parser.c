@@ -829,6 +829,9 @@ static VALUE parse_simple(parserstate *state) {
   }
   case tLIDENT: {
     VALUE location = rbs_location_current_token(state);
+    rbs_loc *loc = check_location(location);
+    rbs_loc_add_required_child(loc, rb_intern("name"), state->current_token.range);
+    rbs_loc_add_optional_child(loc, rb_intern("args"), NULL_RANGE);
     VALUE typename = parse_type_name(state, ALIAS_NAME, NULL);
     return rbs_alias(typename, location);
   }
