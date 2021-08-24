@@ -226,14 +226,14 @@ static bool is_keyword_token(enum TokenType type) {
   function_param ::= {} <type>
                    | {} type <param>
 */
-static VALUE parse_function_param(parserstate *state) {
+static VALUE parse_function_param(parserstate *state, enum TokenType closing_token) {
   range type_range;
 
   type_range.start = state->next_token.range.start;
   VALUE type = parse_type(state);
   type_range.end = state->current_token.range.end;
 
-  if (state->next_token.type == pCOMMA || state->next_token.type == pRPAREN) {
+  if (state->next_token.type == pCOMMA || state->next_token.type == closing_token) {
     range param_range = type_range;
 
     VALUE location = rbs_new_location(state->buffer, param_range);
@@ -267,19 +267,11 @@ static ID intern_token_start_end(parserstate *state, token start_token, token en
 }
 
 /*
-  keyword ::= {} keyword `:` <function_param>      // Required keyword
-            | `?` {} keyword `:` <function_param>  // Optional keyword
+  keyword ::= {} keyword `:` <function_param>
 */
-static void parse_keyword(parserstate *state, method_params *params) {
-  VALUE keywords;
+static void parse_keyword(parserstate *state, VALUE keywords, enum TokenType closing_token) {
   VALUE key;
   VALUE param;
-
-  if (state->current_token.type == pQUESTION) {
-    keywords = params->optional_keywords;
-  } else {
-    keywords = params->required_keywords;
-  }
 
   if (state->next_token2.type == pQUESTION) {
     parser_advance(state);
@@ -291,7 +283,7 @@ static void parse_keyword(parserstate *state, method_params *params) {
   }
 
   parser_advance_assert(state, pCOLON);
-  param = parse_function_param(state);
+  param = parse_function_param(state, closing_token);
 
   rb_hash_aset(keywords, key, param);
 
@@ -371,7 +363,7 @@ static void parse_params(parserstate *state, method_params *params) {
           goto PARSE_KEYWORDS;
         }
 
-        param = parse_function_param(state);
+        param = parse_function_param(state, pRPAREN);
         rb_ary_push(params->required_positionals, param);
 
         break;
@@ -391,12 +383,12 @@ PARSE_OPTIONAL_PARAMS:
         parser_advance(state);
 
         if (is_keyword(state)) {
-          parse_keyword(state, params);
+          parse_keyword(state, params->optional_keywords, pRPAREN);
           parser_advance_if(state, pCOMMA);
           goto PARSE_KEYWORDS;
         }
 
-        param = parse_function_param(state);
+        param = parse_function_param(state, pRPAREN);
         rb_ary_push(params->optional_positionals, param);
 
         break;
@@ -412,7 +404,7 @@ PARSE_OPTIONAL_PARAMS:
 PARSE_REST_PARAM:
   if (state->next_token.type == pSTAR) {
     parser_advance(state);
-    params->rest_positionals = parse_function_param(state);
+    params->rest_positionals = parse_function_param(state, pRPAREN);
 
     if (!parser_advance_if(state, pCOMMA)) {
       goto EOP;
@@ -439,7 +431,7 @@ PARSE_TRAILING_PARAMS:
           goto PARSE_KEYWORDS;
         }
 
-        param = parse_function_param(state);
+        param = parse_function_param(state, pRPAREN);
         rb_ary_push(params->trailing_positionals, param);
 
         break;
@@ -456,7 +448,7 @@ PARSE_KEYWORDS:
     case pQUESTION:
       parser_advance(state);
       if (is_keyword(state)) {
-        parse_keyword(state, params);
+        parse_keyword(state, params->optional_keywords, pRPAREN);
       } else {
         raise_syntax_error(
           state,
@@ -468,7 +460,7 @@ PARSE_KEYWORDS:
 
     case pSTAR2:
       parser_advance(state);
-      params->rest_keywords = parse_function_param(state);
+      params->rest_keywords = parse_function_param(state, pRPAREN);
       break;
 
     case tUIDENT:
@@ -477,7 +469,7 @@ PARSE_KEYWORDS:
     case tBANGIDENT:
     KEYWORD_CASES
       if (is_keyword(state)) {
-        parse_keyword(state, params);
+        parse_keyword(state, params->required_keywords, pRPAREN);
       } else {
         raise_syntax_error(
           state,
@@ -635,18 +627,15 @@ VALUE parse_record_attributes(parserstate *state) {
   VALUE hash = rb_hash_new();
 
   while (true) {
-    VALUE key;
-    VALUE type;
-
-    if (is_keyword_token(state->next_token.type) && state->next_token2.type == pCOLON) {
+    if (is_keyword(state)) {
       // { foo: type } syntax
-      parser_advance(state);
-      key = ID2SYM(INTERN_TOKEN(state, state->current_token));
-      parser_advance_assert(state, pCOLON);
+      parse_keyword(state, hash, pRBRACE);
     } else {
       // { key => type } syntax
-      switch (state->next_token.type)
-      {
+      VALUE key;
+      VALUE type;
+
+      switch (state->next_token.type) {
       case tSYMBOL:
       case tSQSYMBOL:
       case tDQSYMBOL:
@@ -662,14 +651,12 @@ VALUE parse_record_attributes(parserstate *state) {
       }
 
       parser_advance_assert(state, pFATARROW);
+
+      type = parse_type(state);
+      rb_hash_aset(hash, key, type);
     }
 
-    type = parse_type(state);
-
-    rb_hash_aset(hash, key, type);
-
-    if (state->next_token.type == pCOMMA) {
-      parser_advance(state);
+    if (parser_advance_if(state, pCOMMA)) {
       if (state->next_token.type == pRBRACE) {
         break;
       }
