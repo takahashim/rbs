@@ -327,7 +327,7 @@ static token lex_underscore(lexstate *state) {
     }
 
     return next_token(state, tULIDENT);
-  } else if (isalpha(c) || c == '_') {
+  } else if (rb_isalnum(c) || c == '_') {
     advance_char(state, c);
 
     while (true) {
