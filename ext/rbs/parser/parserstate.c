@@ -184,7 +184,6 @@ VALUE get_comment(parserstate *state, int subject_line) {
   comment *comment = state->last_comment;
 
   if (!comment) return Qnil;
-
   if (comment->end.line != subject_line - 1) return Qnil;
 
   VALUE content = rb_funcall(state->buffer, rb_intern("content"), 0);
@@ -216,14 +215,18 @@ VALUE get_comment(parserstate *state, int subject_line) {
   );
 }
 
-void init_parser(parserstate *parser, lexstate *lex, VALUE buffer, int line, int column, VALUE variables) {
+parserstate *alloc_parser(VALUE buffer, int line, int column, VALUE variables) {
   VALUE string = rb_funcall(buffer, rb_intern("content"), 0);
-  lex->string = string;
-  lex->current.line = line;
-  lex->current.column = column;
-  lex->first_token_of_line = lex->current.column == 0;
 
-  parser->lexstate = lex;
+  lexstate *lexer = calloc(1, sizeof(lexstate));
+  lexer->string = string;
+  lexer->current.line = line;
+  lexer->current.column = column;
+  lexer->start = lexer->current;
+  lexer->first_token_of_line = lexer->current.column == 0;
+
+  parserstate *parser = calloc(1, sizeof(parserstate));
+  parser->lexstate = lexer;
   parser->buffer = buffer;
   parser->current_token = NullToken;
   parser->next_token = NullToken;
@@ -243,4 +246,11 @@ void init_parser(parserstate *parser, lexstate *lex, VALUE buffer, int line, int
       parser_insert_typevar(parser, SYM2ID(symbol));
     }
   }
+
+  return parser;
+}
+
+void free_parser(parserstate *parser) {
+  free(parser->lexstate);
+  free(parser);
 }

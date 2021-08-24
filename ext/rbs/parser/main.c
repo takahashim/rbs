@@ -78,12 +78,12 @@ VALUE RBS_ParsingError;
 static VALUE
 rbsparser_parse_type(VALUE self, VALUE buffer, VALUE line, VALUE column, VALUE variables)
 {
-  parserstate parser = { 0 };
-  lexstate lexer = { 0 };
+  parserstate *parser = alloc_parser(buffer, FIX2INT(line), FIX2INT(column), variables);
 
-  init_parser(&parser, &lexer, buffer, FIX2INT(line), FIX2INT(column), variables);
-  VALUE type = parse_type(&parser);
-  parser_advance_assert(&parser, pEOF);
+  VALUE type = parse_type(parser);
+  parser_advance_assert(parser, pEOF);
+
+  free_parser(parser);
 
   return type;
 }
@@ -91,21 +91,21 @@ rbsparser_parse_type(VALUE self, VALUE buffer, VALUE line, VALUE column, VALUE v
 static VALUE
 rbsparser_parse_method_type(VALUE self, VALUE buffer, VALUE line, VALUE column, VALUE variables)
 {
-  parserstate parser = { 0 };
-  lexstate lexer = { 0 };
+  parserstate *parser = alloc_parser(buffer, FIX2INT(line), FIX2INT(column), variables);
+  VALUE method_type = parse_method_type(parser);
+  free(parser);
 
-  init_parser(&parser, &lexer, buffer, FIX2INT(line), FIX2INT(column), variables);
-  return parse_method_type(&parser);
+  return method_type;
 }
 
 static VALUE
 rbsparser_parse_signature(VALUE self, VALUE buffer, VALUE line, VALUE column)
 {
-  parserstate parser = { 0 };
-  lexstate lexer = { 0 };
+  parserstate *parser = alloc_parser(buffer, FIX2INT(line), FIX2INT(column), Qnil);
+  VALUE signature = parse_signature(parser);
+  free_parser(parser);
 
-  init_parser(&parser, &lexer, buffer, FIX2INT(line), FIX2INT(column), Qnil);
-  return parse_signature(&parser);
+  return signature;
 }
 
 void

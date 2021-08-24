@@ -47,7 +47,8 @@ void parser_insert_typevar(parserstate *state, ID id);
 bool parser_typevar_member(parserstate *state, ID id);
 void parser_pop_typevar_table(parserstate *state);
 
-void init_parser(parserstate *parser, lexstate *lexer, VALUE buffer, int line, int column, VALUE variables);
+parserstate *alloc_parser(VALUE buffer, int line, int column, VALUE variables);
+void free_parser(parserstate *parser);
 void print_parser(parserstate *state);
 void parser_advance(parserstate *state);
 void parser_advance_assert(parserstate *state, enum TokenType type);
