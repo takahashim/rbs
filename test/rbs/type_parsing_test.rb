@@ -123,7 +123,7 @@ class RBS::TypeParsingTest < Test::Unit::TestCase
       assert_equal "::Foo::foo", type.location.source
     end
 
-    assert_raises Parser::SyntaxError do
+    assert_raises RBS::ParsingError do
       Parser.parse_type("foo[untyped]")
     end
   end
@@ -259,11 +259,11 @@ class RBS::TypeParsingTest < Test::Unit::TestCase
       assert_equal "singleton(::Object)", type.location.source
     end
 
-    assert_raises Parser::SyntaxError do
+    assert_raises RBS::ParsingError do
       Parser.parse_type("singleton(foo)")
     end
 
-    assert_raises Parser::SyntaxError do
+    assert_raises RBS::ParsingError do
       Parser.parse_type("singleton(_FOO)")
     end
   end
@@ -543,11 +543,11 @@ class RBS::TypeParsingTest < Test::Unit::TestCase
       end
     end
 
-    assert_raises Parser::SyntaxError do
+    assert_raises RBS::ParsingError do
       Parser.parse_type(":+foo")
     end
 
-    assert_raises Parser::SyntaxError do
+    assert_raises RBS::ParsingError do
       Parser.parse_type(":@")
     end
 
@@ -612,7 +612,7 @@ class RBS::TypeParsingTest < Test::Unit::TestCase
       end
     end
 
-    assert_raises Parser::SemanticsError do
+    assert_raises RBS::ParsingError do
       Parser.parse_type("Array[A]", variables: [:A, :Array])
     end
   end
