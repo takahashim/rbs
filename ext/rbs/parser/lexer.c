@@ -871,20 +871,17 @@ static token lex_percent(lexstate *state) {
   advance_char(state, cs[0]);
   advance_char(state, cs[1]);
 
-  token tok;
-
   unsigned int c;
 
-  while ((c = peek(state)) != '\0') {
+  while (c = peek(state)) {
     if (c == end_char) {
-      tok = next_token(state, tANNOTATION);
       advance_char(state, c);
-      return tok;
+      return next_token(state, tANNOTATION);
     }
     advance_char(state, c);
   }
 
-  return NullToken;
+  return next_token(state, ErrorToken);
 }
 
 /*

@@ -1113,10 +1113,49 @@ VALUE parse_annotation(parserstate *state) {
   VALUE content = rb_funcall(state->buffer, rb_intern("content"), 0);
   rb_encoding *enc = rb_enc_get(content);
 
-  char *p = peek_token(state->lexstate, state->current_token);
-  int bytes = state->current_token.range.end.byte_pos - state->current_token.range.start.byte_pos;
+  range rg = state->current_token.range;
 
-  VALUE string = rb_enc_str_new(p, bytes, enc);
+  int offset_bytes = rb_enc_codelen('%', enc) + rb_enc_codelen('a', enc);
+
+  unsigned int open_char = rb_enc_mbc_to_codepoint(
+    RSTRING_PTR(state->lexstate->string) + rg.start.byte_pos + offset_bytes,
+    RSTRING_END(state->lexstate->string),
+    enc
+  );
+
+  unsigned int close_char;
+
+  switch (open_char) {
+  case '{':
+    close_char = '}';
+    break;
+  case '(':
+    close_char = ')';
+    break;
+  case '[':
+    close_char = ']';
+    break;
+  case '<':
+    close_char = '>';
+    break;
+  case '|':
+    close_char = '|';
+    break;
+  default:
+    rbs_abort();
+  }
+
+  int open_bytes = rb_enc_codelen(open_char, enc);
+  int close_bytes = rb_enc_codelen(close_char, enc);
+
+  char *buffer = RSTRING_PTR(state->lexstate->string) + rg.start.byte_pos + offset_bytes + open_bytes;
+  VALUE string = rb_enc_str_new(
+    buffer,
+    rg.end.byte_pos - rg.start.byte_pos - offset_bytes - open_bytes - close_bytes,
+    enc
+  );
+  rb_funcall(string, rb_intern("strip!"), 0);
+
   VALUE location = rbs_location_current_token(state);
 
   return rbs_ast_annotation(string, location);
