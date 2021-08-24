@@ -859,7 +859,7 @@ static VALUE parse_simple(parserstate *state) {
     rg.start = state->current_token.range.start;
     VALUE types = rb_ary_new();
     if (state->next_token.type != pRBRACKET) {
-      parse_type_list(state, pRBRACKET, rb_ary_new());
+      parse_type_list(state, pRBRACKET, types);
     }
     parser_advance_assert(state, pRBRACKET);
     rg.end = state->current_token.range.end;
