@@ -717,7 +717,7 @@ static token lex_colon_symbol(lexstate *state) {
         advance_char(state, c[0]);
         advance_char(state, c[1]);
       } else {
-        break;
+        advance_char(state, c[0]);
       }
       return next_token(state, tSYMBOL);
     case '@':
