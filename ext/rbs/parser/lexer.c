@@ -912,18 +912,21 @@ static token lex_bang(lexstate *state) {
               | `[^ :][^`]`  (tQIDENT)
 */
 static token lex_backquote(lexstate *state) {
-  unsigned char c = peek(state);
+  unsigned int c = peek(state);
 
   if (c == ' ' || c == ':') {
     return next_token(state, tOPERATOR);
   } else {
-    advance_char(state, c);
-    while (c != '`') {
+    while (true) {
+      if (c == '`') {
+        break;
+      }
+
       c = peek(state);
       advance_char(state, c);
     }
 
-    return next_token(state, tOPERATOR);
+    return next_token(state, tQIDENT);
   }
 }
 
