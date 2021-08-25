@@ -873,7 +873,7 @@ static token lex_percent(lexstate *state) {
 
   unsigned int c;
 
-  while (c = peek(state)) {
+  while ((c = peek(state))) {
     if (c == end_char) {
       advance_char(state, c);
       return next_token(state, tANNOTATION);

@@ -212,7 +212,7 @@ void comment_insert_new_line(comment *com, token comment_token) {
     if (com->tokens) {
       token *p = com->tokens;
       com->tokens = calloc(com->line_size, sizeof(token));
-      memcpy(com->tokens, p, sizeof(token) + com->line_count);
+      memcpy(com->tokens, p, sizeof(token) * com->line_count);
       free(p);
     } else {
       com->tokens = calloc(com->line_size, sizeof(token));
