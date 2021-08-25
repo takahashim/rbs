@@ -1343,37 +1343,24 @@ InstanceSingletonKind parse_instance_singleton_kind(parserstate *state, bool all
 
   if (state->next_token.type == kSELF) {
     range self_range = state->next_token.range;
-    parser_advance(state);
 
-    if (state->next_token.type == pDOT) {
+    if (state->next_token2.type == pDOT) {
+      parser_advance(state);
       parser_advance(state);
       kind = SINGLETON_KIND;
       rg->start = self_range.start;
       rg->end = state->current_token.range.end;
     } else if (
-      state->next_token.type == pQUESTION
-    && state->current_token.range.end.char_pos == state->next_token.range.start.char_pos
-    && state->next_token2.type == pDOT
+      state->next_token2.type == pQUESTION
+    && state->next_token.range.end.char_pos == state->next_token2.range.start.char_pos
+    && state->next_token3.type == pDOT
     && allow_selfq) {
+      parser_advance(state);
       parser_advance(state);
       parser_advance(state);
       kind = INSTANCE_SINGLETON_KIND;
       rg->start = self_range.start;
       rg->end = state->current_token.range.end;
-    } else {
-      if (allow_selfq) {
-        raise_syntax_error(
-          state,
-          state->next_token,
-          "expected `self.`, `self?.`, or empty"
-        );
-      } else {
-        raise_syntax_error(
-          state,
-          state->next_token,
-          "expected `self.` or empty"
-        );
-      }
     }
   } else {
     *rg = NULL_RANGE;

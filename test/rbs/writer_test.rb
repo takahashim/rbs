@@ -102,7 +102,7 @@ end
 
   def test_escape
     assert_writer <<-SIG
-interface _Each[X, Y]
+module XYZZY[X, Y]
   def []: () -> void
 
   def []=: () -> void
@@ -113,9 +113,9 @@ interface _Each[X, Y]
 
   def def: () -> Symbol
 
-  def `self`: () -> void
+  def self: () -> void
 
-  def `self?`: () -> void
+  def self?: () -> void
 
   def timeout: () -> Integer
 
