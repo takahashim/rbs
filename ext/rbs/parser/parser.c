@@ -1896,7 +1896,7 @@ VALUE parse_interface_members(parserstate *state) {
     VALUE member;
     switch (state->current_token.type) {
     case kDEF:
-      member = parse_member_def(state, true, false, annot_pos, annotations);
+      member = parse_member_def(state, true, true, annot_pos, annotations);
       break;
 
     case kINCLUDE:

@@ -499,7 +499,7 @@ RBS
       RBS::Parser.parse_type(buffer('interface'))
     end.tap do |exn|
       assert_equal(
-        'test.rbs:0:0...1:9: Syntax error: unexpected token for simple type, token=`interface` (kINTERFACE)',
+        'test.rbs:1:0...1:9: Syntax error: unexpected token for simple type, token=`interface` (kINTERFACE)',
         exn.message
       )
     end
@@ -513,19 +513,6 @@ RBS
     end.tap do |exn|
       assert_equal(
         'test.rbs:2:6...2:9: Syntax error: unexpected token for method name, token=`123` (tINTEGER)',
-        exn.message
-      )
-    end
-
-    assert_raises RBS::ParsingError do
-      RBS::Parser.parse_signature(buffer(<<RBS))
-interface _Foo
-  def foo: () -> void | ...
-end
-RBS
-    end.tap do |exn|
-      assert_equal(
-        'test.rbs:2:24...2:27: Syntax error: unexpected overloading method definition, token=`...` (pDOT3)',
         exn.message
       )
     end
