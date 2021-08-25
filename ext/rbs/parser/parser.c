@@ -1980,6 +1980,8 @@ void parse_module_self_types(parserstate *state, VALUE array) {
 
     parser_advance(state);
 
+    self_range.start = state->current_token.range.start;
+
     VALUE module_name = parse_type_name(state, CLASS_NAME | INTERFACE_NAME, &name_range);
     self_range.end = name_range.end;
 
